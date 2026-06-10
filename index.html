@@ -2,52 +2,65 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>NEON OINK</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐷</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEON OINK">
+<meta name="theme-color" content="#07070f">
 <style>
-  html,body{margin:0;padding:0;overflow:hidden;background:#07070f;font-family:'Segoe UI',system-ui,sans-serif;height:100%;touch-action:none;}
+  html,body{margin:0;padding:0;overflow:hidden;background:#07070f;font-family:'Segoe UI',system-ui,sans-serif;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;}
   #c,#c2{position:fixed;inset:0;display:block;width:100%;height:100%;}
   #c2{z-index:2;pointer-events:none;opacity:0;transition:opacity .25s;}
-  #hud{position:fixed;top:12px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;pointer-events:none;z-index:5;}
-  #score{font-size:42px;font-weight:800;color:#fff;text-shadow:0 0 16px rgba(255,255,255,.5);}
-  #rings{font-size:14px;font-weight:700;color:#ffd700;}
-  #lvl{font-size:13px;font-weight:800;color:#9ef01a;letter-spacing:1px;}
+  #hud{position:fixed;top:max(12px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right));pointer-events:none;z-index:5;}
+  #score{font-size:38px;font-weight:800;color:#fff;text-shadow:0 0 16px rgba(255,255,255,.5);}
+  #rings{font-size:13px;font-weight:700;color:#ffd700;}
+  #lvl{font-size:12px;font-weight:800;color:#9ef01a;letter-spacing:1px;}
   #mult{font-size:22px;font-weight:900;color:#ff2fb9;text-shadow:0 0 14px rgba(255,47,185,.8);min-height:28px;}
   #chain{font-size:11px;color:#ff9de2;font-weight:700;}
   #modeBox{text-align:right;}
-  #mode{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:7px 13px;color:#fff;font-weight:700;font-size:12px;letter-spacing:1px;display:inline-block;}
-  #mode .dim{font-size:19px;}
+  #mode{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:6px 12px;color:#fff;font-weight:700;font-size:11px;letter-spacing:1px;display:inline-block;}
+  #mode .dim{font-size:18px;}
   .dim2{color:#39d2ff;} .dim3{color:#ff2fb9;}
-  #heading{color:#8aa;font-size:11px;font-weight:600;margin-top:3px;}
-  #beatPop{position:fixed;top:26%;left:0;right:0;text-align:center;z-index:6;pointer-events:none;font-size:26px;font-weight:900;color:#fff;opacity:0;text-shadow:0 0 20px #39d2ff;}
+  #heading{color:#8aa;font-size:10px;font-weight:600;margin-top:3px;}
+  #beatPop{position:fixed;top:24%;left:0;right:0;text-align:center;z-index:6;pointer-events:none;font-size:26px;font-weight:900;color:#fff;opacity:0;text-shadow:0 0 20px #39d2ff;}
   .pop{animation:popA .5s ease forwards;}
   @keyframes popA{0%{opacity:0;transform:scale(.6);}25%{opacity:1;transform:scale(1.15);}100%{opacity:0;transform:scale(1) translateY(-26px);}}
-  #overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(4,4,16,.86);z-index:10;backdrop-filter:blur(4px);overflow-y:auto;}
-  #overlay h1{font-size:clamp(34px,8vw,64px);margin:6px 0;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#39d2ff,#ff2fb9,#9ef01a);-webkit-background-clip:text;background-clip:text;color:transparent;}
-  #overlay p{color:#cfd6ff;max-width:520px;text-align:center;line-height:1.55;margin:4px 20px;font-size:13.5px;}
-  #overlay .key{background:#1d2240;border:1px solid #4a5388;border-radius:6px;padding:1px 7px;color:#fff;font-weight:700;font-size:12px;}
-  #startBtn{margin-top:14px;background:linear-gradient(135deg,#ff2fb9,#39d2ff);border:none;color:#fff;font-size:20px;font-weight:900;padding:14px 50px;border-radius:14px;cursor:pointer;box-shadow:0 0 30px rgba(255,47,185,.5);letter-spacing:2px;}
+  #overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(4,4,16,.86);z-index:10;backdrop-filter:blur(4px);overflow-y:auto;padding:20px 0;}
+  #overlay h1{font-size:clamp(30px,7vw,56px);margin:4px 0;font-weight:900;letter-spacing:3px;background:linear-gradient(90deg,#39d2ff,#ff2fb9,#9ef01a);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  #overlay p{color:#cfd6ff;max-width:520px;text-align:center;line-height:1.5;margin:3px 20px;font-size:12.5px;}
+  #overlay .key{background:#1d2240;border:1px solid #4a5388;border-radius:6px;padding:1px 7px;color:#fff;font-weight:700;font-size:11px;}
+  #startBtn{margin-top:12px;background:linear-gradient(135deg,#ff2fb9,#39d2ff);border:none;color:#fff;font-size:19px;font-weight:900;padding:13px 48px;border-radius:14px;cursor:pointer;box-shadow:0 0 30px rgba(255,47,185,.5);letter-spacing:2px;}
   #startBtn:active{transform:scale(.96);}
-  #finalScore{color:#fff;font-size:20px;font-weight:800;margin-top:6px;}
-  #runCode{color:#9ef01a;font-size:15px;font-weight:800;margin-top:4px;letter-spacing:2px;}
-  #codeRow{display:flex;gap:8px;margin-top:12px;align-items:center;}
-  #codeInput{background:#11142a;border:1px solid #39d2ff;border-radius:8px;color:#fff;padding:9px 12px;font-size:14px;width:140px;text-transform:uppercase;letter-spacing:2px;text-align:center;}
-  #codeBtn{background:#1d2240;border:1px solid #4a5388;color:#39d2ff;border-radius:8px;padding:9px 14px;font-weight:800;cursor:pointer;font-size:13px;}
-  #lb{margin-top:14px;color:#cfd6ff;font-size:12.5px;min-width:230px;}
+  #finalScore{color:#fff;font-size:18px;font-weight:800;margin-top:5px;}
+  #runCode{color:#9ef01a;font-size:14px;font-weight:800;margin-top:3px;letter-spacing:2px;}
+  #codeRow{display:flex;gap:8px;margin-top:10px;align-items:center;}
+  #codeInput{background:#11142a;border:1px solid #39d2ff;border-radius:8px;color:#fff;padding:8px 12px;font-size:14px;width:130px;text-transform:uppercase;letter-spacing:2px;text-align:center;}
+  #codeBtn{background:#1d2240;border:1px solid #4a5388;color:#39d2ff;border-radius:8px;padding:8px 13px;font-weight:800;cursor:pointer;font-size:12px;}
+  #lb{margin-top:10px;color:#cfd6ff;font-size:12px;min-width:230px;}
   #lb .row{display:flex;justify-content:space-between;padding:2px 6px;}
   #lb .me{color:#9ef01a;font-weight:800;}
-  #switchBtn{position:fixed;bottom:48px;right:16px;z-index:6;background:rgba(255,47,185,.8);border:2px solid rgba(255,255,255,.4);color:#fff;font-size:14px;font-weight:800;padding:14px 16px;border-radius:50px;cursor:pointer;user-select:none;box-shadow:0 0 18px rgba(255,47,185,.6);}
-  .padBtn{position:fixed;z-index:6;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);color:#fff;font-size:20px;font-weight:800;width:52px;height:52px;border-radius:50%;display:none;align-items:center;justify-content:center;user-select:none;}
-  #turnL{left:16px;bottom:48px;} #turnR{left:78px;bottom:48px;}
+  #switchBtn{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));right:max(16px,env(safe-area-inset-right));z-index:6;background:rgba(255,47,185,.85);border:2px solid rgba(255,255,255,.4);color:#fff;font-size:15px;font-weight:800;padding:18px 20px;border-radius:50px;cursor:pointer;user-select:none;box-shadow:0 0 18px rgba(255,47,185,.6);}
+  #joyBase{position:fixed;z-index:6;width:110px;height:110px;border-radius:50%;border:2px solid rgba(57,210,255,.5);background:rgba(57,210,255,.08);display:none;pointer-events:none;}
+  #joyKnob{position:absolute;left:50%;top:50%;width:44px;height:44px;border-radius:50%;background:rgba(57,210,255,.55);transform:translate(-50%,-50%);}
+  #joyHint{position:fixed;bottom:max(28px,env(safe-area-inset-bottom));left:24px;z-index:5;color:rgba(255,255,255,.45);font-size:11px;font-weight:700;display:none;pointer-events:none;}
   #flashLayer{position:fixed;inset:0;pointer-events:none;z-index:4;}
   .flash{animation:flashA .35s ease;}
   @keyframes flashA{0%{background:rgba(255,255,255,.6);}100%{background:transparent;}}
-  #lvlBanner{position:fixed;top:30%;left:0;right:0;text-align:center;z-index:7;pointer-events:none;opacity:0;}
-  #lvlBanner .big{font-size:clamp(38px,9vw,80px);font-weight:900;color:#9ef01a;text-shadow:0 0 36px rgba(158,240,26,.9);letter-spacing:5px;}
-  #lvlBanner .sub{font-size:16px;font-weight:700;color:#fff;}
+  #lvlBanner{position:fixed;top:28%;left:0;right:0;text-align:center;z-index:7;pointer-events:none;opacity:0;}
+  #lvlBanner .big{font-size:clamp(34px,8vw,72px);font-weight:900;color:#9ef01a;text-shadow:0 0 36px rgba(158,240,26,.9);letter-spacing:5px;}
+  #lvlBanner .sub{font-size:15px;font-weight:700;color:#fff;}
   .lvlPop{animation:lvlPop 1.9s ease forwards;}
   @keyframes lvlPop{0%{opacity:0;transform:scale(.5);}12%{opacity:1;transform:scale(1.08);}25%{transform:scale(1);}75%{opacity:1;}100%{opacity:0;transform:translateY(-20px);}}
+  #rotateOverlay{position:fixed;inset:0;z-index:60;background:#07070f;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;}
+  #rotateOverlay .icon{font-size:64px;animation:spin 2s ease infinite;}
+  @keyframes spin{0%,100%{transform:rotate(0);}50%{transform:rotate(90deg);}}
+  #rotateOverlay p{color:#39d2ff;font-weight:800;font-size:18px;letter-spacing:1px;}
+  body.touch.portrait #rotateOverlay{display:flex;}
 </style>
 </head>
 <body>
@@ -71,15 +84,17 @@
     <div id="heading">heading 0°</div>
   </div>
 </div>
-<button id="switchBtn">⟲ FLIP (R-Click)</button>
-<div class="padBtn" id="turnL">⟲</div>
-<div class="padBtn" id="turnR">⟳</div>
+<button id="switchBtn">⟲ FLIP</button>
+<div id="joyBase"><div id="joyKnob"></div></div>
+<div id="joyHint">◀ steer here · tap right side to flap</div>
+<div id="rotateOverlay"><div class="icon">📱</div><p>ROTATE TO LANDSCAPE</p></div>
 <div id="overlay">
   <h1>NEON OINK</h1>
-  <p><b style="color:#39d2ff">2D</b> flat rhythm flyer · <b style="color:#ff2fb9">3D</b> open neon world — same world, flip anytime with <span class="key">R-CLICK</span>/<span class="key">TAB</span>.</p>
-  <p><span class="key">L-CLICK</span>/<span class="key">SPACE</span> flap · <span class="key">A</span><span class="key">D</span> turn in 3D · <span class="key">W</span><span class="key">S</span> speed</p>
-  <p style="color:#ff9de2"><b>FLAP ON THE BEAT.</b> Chain on-beat flaps for 2× → 3× → 4× score. Music gets faster and thicker every level.</p>
-  <p style="color:#9ef01a">Every 25 pts = LEVEL UP. New hazards through LVL 10. ⚡ Neon gates, crow swarms, moving gates...</p>
+  <p><b style="color:#39d2ff">2D</b> flat rhythm flyer · <b style="color:#ff2fb9">3D</b> open neon world — flip anytime.</p>
+  <p class="pcOnly"><span class="key">L-CLICK</span>/<span class="key">SPACE</span> flap · <span class="key">R-CLICK</span>/<span class="key">TAB</span> flip · <span class="key">A</span><span class="key">D</span> turn · <span class="key">W</span><span class="key">S</span> speed</p>
+  <p class="mobileOnly" style="display:none;"><b>TAP</b> to flap · <b>FLIP button</b> to swap dimensions · in 3D, <b>left thumb</b> = joystick steer, <b>right thumb</b> = flap</p>
+  <p style="color:#ff9de2"><b>FLAP ON THE BEAT.</b> Chain on-beat flaps for 2× → 3× → 4× score.</p>
+  <p style="color:#9ef01a">Every 25 pts = LEVEL UP. New hazards through LVL 10.</p>
   <div id="finalScore"></div>
   <div id="runCode"></div>
   <div id="codeRow">
@@ -106,6 +121,18 @@ const store={
     memStore[k]=v;
   }
 };
+// ---------- device / orientation ----------
+const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+if(isTouch){
+  document.body.classList.add('touch');
+  document.querySelectorAll('.mobileOnly').forEach(e=>e.style.display='block');
+  document.querySelectorAll('.pcOnly').forEach(e=>e.style.display='none');
+}
+function checkOrient(){
+  document.body.classList.toggle('portrait',innerHeight>innerWidth);
+}
+addEventListener('resize',checkOrient); checkOrient();
+
 const glCanvas=document.getElementById('c');
 const flatCanvas=document.getElementById('c2');
 const ctx=flatCanvas.getContext('2d');
@@ -146,7 +173,7 @@ const crowChance=()=>level>=2?Math.min(.26,.07+level*.022):0;
 const fenceChance=()=>level>=3?Math.min(.22,.06+level*.018):0;
 const ringChance=()=>Math.max(.05,.12-level*.008);
 let AC=null,masterGain=null,noiseBuf=null;
-let beatRef=0,schedNext=0,sixteenth=0,arpStep=0;
+let beatRef=0,schedNext=0,arpStep=0;
 const PENT=[130.81,155.56,174.61,196,233.08];
 function initAudio(){
   if(AC) return;
@@ -447,23 +474,65 @@ function updateDynamics(now,dt){
     }
   }
 }
+// ---------- input: keyboard ----------
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space'){e.preventDefault(); playing?flap():start();}
   if(e.code==='Tab'){e.preventDefault(); toggleDim();}
 });
 addEventListener('keyup',e=>keys[e.code]=false);
+// ---------- input: mouse (desktop) ----------
 addEventListener('pointerdown',e=>{
-  if(e.target.closest('#overlay,#switchBtn,.padBtn')) return;
+  if(isTouch) return;
+  if(e.target.closest('#overlay,#switchBtn')) return;
   if(e.button===0&&playing) flap();
 });
-addEventListener('contextmenu',e=>{e.preventDefault(); toggleDim();});
+addEventListener('contextmenu',e=>{e.preventDefault(); if(!isTouch) toggleDim();});
 document.getElementById('switchBtn').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();toggleDim();});
-let touchTurn=0;
-const tl=document.getElementById('turnL'),tr=document.getElementById('turnR');
-tl.addEventListener('pointerdown',e=>{e.stopPropagation();touchTurn=1;});
-tr.addEventListener('pointerdown',e=>{e.stopPropagation();touchTurn=-1;});
-addEventListener('pointerup',()=>touchTurn=0);
+// ---------- input: touch (mobile) ----------
+const joyBase=document.getElementById('joyBase');
+const joyKnob=document.getElementById('joyKnob');
+const joyHint=document.getElementById('joyHint');
+let joyId=null,joyOrigin={x:0,y:0},joyVec={x:0,y:0};
+const JOY_R=50;
+function joyUI(){
+  joyHint.style.display=(isTouch&&is3D&&playing)?'block':'none';
+}
+addEventListener('touchstart',e=>{
+  if(e.target.closest('#overlay,#switchBtn')) return;
+  for(const t of e.changedTouches){
+    if(is3D&&playing&&t.clientX<innerWidth*.42&&joyId===null){
+      joyId=t.identifier;
+      joyOrigin={x:t.clientX,y:t.clientY};
+      joyVec={x:0,y:0};
+      joyBase.style.display='block';
+      joyBase.style.left=(t.clientX-55)+'px';
+      joyBase.style.top=(t.clientY-55)+'px';
+      joyKnob.style.transform='translate(-50%,-50%)';
+    } else {
+      if(playing) flap(); else if(!dead&&document.getElementById('overlay').style.display==='none') flap();
+    }
+  }
+},{passive:true});
+addEventListener('touchmove',e=>{
+  for(const t of e.changedTouches){
+    if(t.identifier===joyId){
+      let dx=t.clientX-joyOrigin.x,dy=t.clientY-joyOrigin.y;
+      const d=Math.hypot(dx,dy);
+      if(d>JOY_R){dx=dx/d*JOY_R; dy=dy/d*JOY_R;}
+      joyVec={x:dx/JOY_R,y:dy/JOY_R};
+      joyKnob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+    }
+  }
+},{passive:true});
+addEventListener('touchend',e=>{
+  for(const t of e.changedTouches){
+    if(t.identifier===joyId){
+      joyId=null; joyVec={x:0,y:0};
+      joyBase.style.display='none';
+    }
+  }
+},{passive:true});
 function flap(){
   if(dead||pig.stun>0) return;
   pig.vy=FLAP_V;
@@ -492,8 +561,8 @@ function toggleDim(){
   const fl=document.getElementById('flashLayer');
   fl.classList.remove('flash'); void fl.offsetWidth; fl.classList.add('flash');
   flatCanvas.style.opacity=is3D?0:1;
-  tl.style.display=tr.style.display=is3D?'flex':'none';
-  if(!is3D) pig.bank=0;
+  if(!is3D){pig.bank=0; joyId=null; joyVec={x:0,y:0}; joyBase.style.display='none';}
+  joyUI();
 }
 const LVL_SUBS={2:'crows incoming 🐦 · bass drops in',3:'⚡ neon gates · arp unlocked · balloons bob',4:'crow swarms · double hats',5:'moving gates · sub bass',6:'dusk falls',7:'neon night · synth pads',8:'crow chaos',9:'darkness',10:'MAX — full synth wall 🔥'};
 function checkLevel(){
@@ -539,6 +608,10 @@ document.getElementById('startBtn').addEventListener('click',start);
 function start(){
   initAudio();
   if(AC&&AC.state==='suspended')AC.resume();
+  if(isTouch){
+    try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
+    try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
+  }
   overlay.style.display='none';
   playing=true; dead=false; score=0; ringsHit=0; distAcc=0; totalDist=0; level=1;
   beatChain=0; bestChain=0; multiplier=1;
@@ -548,14 +621,14 @@ function start(){
   const d=document.getElementById('dimTxt'); d.textContent='2D'; d.className='dim dim2';
   document.getElementById('lvl').textContent=`LVL 1 · ${bpm()} BPM`;
   flatCanvas.style.opacity=1;
-  tl.style.display=tr.style.display='none';
   for(const [k,ch] of chunks){scene.remove(ch.group); chunks.delete(k);}
   if(AC){beatRef=AC.currentTime+.1; schedNext=beatRef; beatCount=0;}
-  updateChunks(); scatterPatches(); scatterClouds(); updateHUD();
+  updateChunks(); scatterPatches(); scatterClouds(); updateHUD(); joyUI();
 }
 async function die(){
   dead=true; playing=false; best=Math.max(best,score);
   lastTs=Date.now();
+  joyId=null; joyBase.style.display='none'; joyUI();
   document.getElementById('finalScore').textContent=`Score ${score} · LVL ${level} · ⭕${ringsHit} · Best chain ${bestChain}`;
   document.getElementById('runCode').textContent='YOUR RUN CODE: '+seedToCode(runSeed)+' — share it!';
   document.querySelector('#overlay h1').textContent='NEON OINK';
@@ -805,12 +878,13 @@ function loop(now){
     if(is3D){
       if(keys['KeyA']||keys['ArrowLeft']) turn+=1;
       if(keys['KeyD']||keys['ArrowRight']) turn-=1;
-      turn+=touchTurn;
+      turn+=-joyVec.x;
       pig.yaw+=turn*TURN_RATE*dt;
       if(keys['KeyW']||keys['ArrowUp']) speed3=Math.min(SPEED_MAX,speed3+10*dt);
       if(keys['KeyS']||keys['ArrowDown']) speed3=Math.max(SPEED_MIN,speed3-12*dt);
+      if(joyVec.y!==0) speed3=Math.max(SPEED_MIN,Math.min(SPEED_MAX,speed3-joyVec.y*14*dt));
     }
-    const targetBank=is3D?turn*.55:0;
+    const targetBank=is3D?Math.max(-1,Math.min(1,turn))*.55:0;
     pig.bank+=(targetBank-pig.bank)*Math.min(1,dt*6);
     const spd=is3D?Math.max(speed3,baseSpeed3D()*.8):baseSpeed2D();
     pig.pos.addScaledVector(fwd,spd*dt);
@@ -857,6 +931,9 @@ function loop(now){
 applyPalette();
 (async()=>{const lb=await store.get('neon-oink-lb'); if(lb)renderLB(lb);})();
 requestAnimationFrame(loop);
+if('serviceWorker' in navigator){
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
 })();
 </script>
 </body>
