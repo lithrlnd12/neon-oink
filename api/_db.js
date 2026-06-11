@@ -1,33 +1,20 @@
-// api/_db.js — versioned JSON documents on Vercel Blob.
-// Write = new blob with random suffix (unique URL beats CDN caching).
-// Read = newest blob under the prefix. Last-write-wins; fine at friends-scale.
-import { list, put, del } from '@vercel/blob';
+// api/_db.js - JSON documents on a private Vercel Blob store.
+// Reads use get() with useCache:false (authed + cache-busted), so a fixed
+// pathname with allowOverwrite is safe. Last-write-wins; fine at friends-scale.
+import { put, get } from '@vercel/blob';
 
-const PREFIX = 'db/';
-
-async function sortedBlobs(name) {
-  const { blobs } = await list({ prefix: PREFIX + name });
-  if (!blobs.length) return null;
-  blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-  return blobs;
-}
+const path = name => `db/${name}.json`;
 
 export async function readDb(name, fallback) {
-  const blobs = await sortedBlobs(name);
-  if (!blobs) return structuredClone(fallback);
-  const res = await fetch(blobs[0].url);
-  if (!res.ok) return structuredClone(fallback);
-  return res.json();
+  const r = await get(path(name), { access: 'private', useCache: false });
+  if (!r || !r.stream) return structuredClone(fallback);
+  return new Response(r.stream).json();
 }
 
 export async function writeDb(name, data) {
-  await put(PREFIX + name + '.json', JSON.stringify(data), {
-    access: 'public',
-    addRandomSuffix: true,
+  await put(path(name), JSON.stringify(data), {
+    access: 'private',
+    allowOverwrite: true,
     contentType: 'application/json'
   });
-  const blobs = await sortedBlobs(name);
-  if (blobs && blobs.length > 3) {
-    await Promise.all(blobs.slice(3).map(b => del(b.url)));
-  }
 }
