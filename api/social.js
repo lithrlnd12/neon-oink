@@ -1,10 +1,10 @@
-// api/social.js — POST {action, username, token, ...}
-// addFriend {friend} · createDuel {to, seed, code, score} · resolveDuel {id, score} · inbox {}
+﻿// api/social.js - POST {action, username, token, ...}
+// addFriend {friend} | createDuel {to, seed, code, score} | resolveDuel {id, score} | inbox {}
 import crypto from 'node:crypto';
 import { readDb, writeDb } from './_db.js';
-import { normName, NAME_RE, auth, validScore, pruneDuels, duelRecords } from './_lib.js';
+import { normName, NAME_RE, auth, validScore, pruneDuels, duelRecords, withErr } from './_lib.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
   const b = req.body || {};
   const me = normName(b.username);
@@ -66,3 +66,5 @@ export default async function handler(req, res) {
 
   return res.status(400).json({ error: 'bad_action' });
 }
+
+export default withErr(handler);

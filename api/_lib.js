@@ -60,3 +60,11 @@ export function auth(users, username, token) {
   const u = users[username];
   return !!u && u.tokenHash === hashToken(token);
 }
+
+export const withErr = h => async (req, res) => {
+  try { return await h(req, res); }
+  catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'server', detail: String((e && e.message) || e) });
+  }
+};

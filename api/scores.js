@@ -1,13 +1,13 @@
-// api/scores.js
-// GET ?day=YYYY-MM-DD → {daily:[...], alltime:[...]}
-// POST {username, token, day, score, lvl, chain} → {ok, daily, alltime}
+﻿// api/scores.js
+// GET ?day=YYYY-MM-DD -> {daily:[...], alltime:[...]}
+// POST {username, token, day, score, lvl, chain} -> {ok, daily, alltime}
 import { readDb, writeDb } from './_db.js';
-import { normName, auth, validScore, addScore, pruneDaily, utcDay } from './_lib.js';
+import { normName, auth, validScore, addScore, pruneDaily, utcDay, withErr } from './_lib.js';
 
 const EMPTY = { alltime: [], daily: {} };
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method === 'GET') {
     const day = DAY_RE.test(req.query.day || '') ? req.query.day : utcDay();
     const scores = await readDb('scores', EMPTY);
@@ -39,3 +39,5 @@ export default async function handler(req, res) {
   await writeDb('scores', scores);
   return res.status(200).json({ ok: true, daily: scores.daily[day], alltime: scores.alltime });
 }
+
+export default withErr(handler);

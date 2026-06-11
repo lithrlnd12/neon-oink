@@ -1,8 +1,8 @@
-// api/user.js — POST {action:'claim', username} → {username, token}
+﻿// api/user.js - POST {action:'claim', username} -> {username, token}
 import { readDb, writeDb } from './_db.js';
-import { NAME_RE, normName, hashToken, newToken } from './_lib.js';
+import { NAME_RE, normName, hashToken, newToken, withErr } from './_lib.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
   const { action } = req.body || {};
   if (action !== 'claim') return res.status(400).json({ error: 'bad_action' });
@@ -18,3 +18,5 @@ export default async function handler(req, res) {
   await writeDb('users', users);
   return res.status(200).json({ username, token });
 }
+
+export default withErr(handler);
