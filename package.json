@@ -1,0 +1,11 @@
+{
+  "name": "neon-oink",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.4.0"
+  }
+}
