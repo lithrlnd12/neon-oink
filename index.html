@@ -123,10 +123,11 @@ const store={
 };
 // ---------- device / orientation ----------
 const isTouch=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+const hasMouse=matchMedia('(any-pointer:fine)').matches;
 if(isTouch){
   document.body.classList.add('touch');
   document.querySelectorAll('.mobileOnly').forEach(e=>e.style.display='block');
-  document.querySelectorAll('.pcOnly').forEach(e=>e.style.display='none');
+  if(!hasMouse) document.querySelectorAll('.pcOnly').forEach(e=>e.style.display='none');
 }
 function checkOrient(){
   document.body.classList.toggle('portrait',innerHeight>innerWidth);
@@ -483,11 +484,12 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- input: mouse (desktop) ----------
 addEventListener('pointerdown',e=>{
-  if(isTouch) return;
+  if(e.pointerType==='touch') return;
+  if(e.button===2){toggleDim();return;}
   if(e.target.closest('#overlay,#switchBtn')) return;
   if(e.button===0&&playing) flap();
 });
-addEventListener('contextmenu',e=>{e.preventDefault(); if(!isTouch) toggleDim();});
+addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('switchBtn').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();toggleDim();});
 // ---------- input: touch (mobile) ----------
 const joyBase=document.getElementById('joyBase');
@@ -608,7 +610,7 @@ document.getElementById('startBtn').addEventListener('click',start);
 function start(){
   initAudio();
   if(AC&&AC.state==='suspended')AC.resume();
-  if(isTouch){
+  if(isTouch&&!hasMouse){
     try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
     try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
   }
