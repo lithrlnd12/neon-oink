@@ -44,6 +44,22 @@
   #lb{margin-top:10px;color:#cfd6ff;font-size:12px;min-width:230px;}
   #lb .row{display:flex;justify-content:space-between;padding:2px 6px;}
   #lb .me{color:#9ef01a;font-weight:800;}
+  #lbTabs{display:none;gap:6px;justify-content:center;margin-top:10px;}
+  .lbTab{background:#11142a;border:1px solid #2a3060;color:#9aa3d8;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;letter-spacing:1px;}
+  .lbTab.on{color:#39d2ff;border-color:#39d2ff;}
+  #social{margin-top:10px;color:#cfd6ff;font-size:12px;min-width:230px;display:none;}
+  #social .row{display:flex;justify-content:space-between;align-items:center;padding:2px 6px;}
+  .mini{background:#1d2240;border:1px solid #4a5388;color:#ff2fb9;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:11px;font-weight:800;}
+  #friendAdd{display:flex;gap:6px;justify-content:center;margin-top:6px;}
+  #friendInput{background:#11142a;border:1px solid #2a3060;border-radius:8px;color:#fff;padding:6px 10px;font-size:12px;width:120px;text-transform:uppercase;text-align:center;}
+  #duelBanner{display:none;margin-top:8px;color:#ff9de2;font-weight:800;font-size:14px;}
+  #duelBanner button{background:linear-gradient(135deg,#ff2fb9,#39d2ff);border:none;color:#fff;font-weight:900;border-radius:8px;padding:6px 14px;cursor:pointer;margin-left:6px;}
+  #claimModal{position:fixed;inset:0;background:rgba(7,7,15,.88);z-index:20;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;}
+  #claimModal input{background:#11142a;border:1px solid #39d2ff;border-radius:8px;color:#fff;padding:10px 14px;font-size:16px;width:180px;text-transform:uppercase;letter-spacing:2px;text-align:center;}
+  #claimErr{color:#ff5577;font-size:12px;font-weight:700;min-height:16px;}
+  #dailyBtn{margin-top:8px;background:#11142a;border:1px solid #9ef01a;color:#9ef01a;font-weight:800;border-radius:10px;padding:9px 22px;cursor:pointer;letter-spacing:1px;font-size:13px;}
+  #shareBtn,#duelBtn{display:none;background:#11142a;border:1px solid #39d2ff;color:#39d2ff;font-weight:800;border-radius:10px;padding:8px 16px;cursor:pointer;margin:4px 3px 0;font-size:12px;}
+  #pilotTag{color:#9ef01a;font-size:11px;font-weight:800;margin-top:6px;letter-spacing:1px;}
   #switchBtn{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));right:max(16px,env(safe-area-inset-right));z-index:6;background:rgba(255,47,185,.85);border:2px solid rgba(255,255,255,.4);color:#fff;font-size:15px;font-weight:800;padding:18px 20px;border-radius:50px;cursor:pointer;user-select:none;box-shadow:0 0 18px rgba(255,47,185,.6);}
   #joyBase{position:fixed;z-index:6;width:110px;height:110px;border-radius:50%;border:2px solid rgba(57,210,255,.5);background:rgba(57,210,255,.08);display:none;pointer-events:none;}
   #joyKnob{position:absolute;left:50%;top:50%;width:44px;height:44px;border-radius:50%;background:rgba(57,210,255,.55);transform:translate(-50%,-50%);}
@@ -97,12 +113,37 @@
   <p style="color:#9ef01a">Every 25 pts = LEVEL UP. New hazards through LVL 10.</p>
   <div id="finalScore"></div>
   <div id="runCode"></div>
+  <div id="duelBanner"></div>
+  <div><button id="shareBtn">📤 SHARE RUN</button><button id="duelBtn">⚔️ DUEL A FRIEND</button></div>
   <div id="codeRow">
     <input id="codeInput" placeholder="RUN CODE" maxlength="8">
     <button id="codeBtn">CHALLENGE</button>
   </div>
   <div id="lb"></div>
+  <div id="lbTabs">
+    <button class="lbTab" data-tab="today">TODAY</button>
+    <button class="lbTab" data-tab="alltime">ALL-TIME</button>
+    <button class="lbTab" data-tab="friends">FRIENDS</button>
+    <button class="lbTab on" data-tab="local">LOCAL</button>
+  </div>
+  <div id="social">
+    <div style="color:#ff2fb9;font-weight:800;margin-bottom:4px;">👥 FRIENDS</div>
+    <div id="friendsList"></div>
+    <div id="friendAdd"><input id="friendInput" placeholder="ADD BY NAME" maxlength="10"><button id="friendBtn" class="mini">+</button></div>
+    <div id="duelsList" style="margin-top:6px;"></div>
+  </div>
+  <div id="pilotTag"></div>
   <button id="startBtn">FLY</button>
+  <button id="dailyBtn">📅 TODAY'S RUN</button>
+</div>
+<div id="claimModal">
+  <div style="color:#39d2ff;font-weight:900;font-size:18px;letter-spacing:2px;">CLAIM YOUR PILOT NAME</div>
+  <input id="claimInput" placeholder="3-10 CHARS" maxlength="10">
+  <div id="claimErr"></div>
+  <div>
+    <button id="claimGo" style="background:linear-gradient(135deg,#ff2fb9,#39d2ff);border:none;color:#fff;font-weight:900;border-radius:10px;padding:10px 28px;cursor:pointer;">CLAIM</button>
+    <button id="claimSkip" class="mini" style="margin-left:8px;">SKIP</button>
+  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -605,6 +646,175 @@ document.getElementById('codeBtn').addEventListener('click',()=>{
   const s=codeToSeed(document.getElementById('codeInput').value);
   if(s!=null){runSeed=s; document.getElementById('runCode').textContent='⚔️ CHALLENGE LOADED: '+seedToCode(s);}
 });
+// ---------- online: api & identity ----------
+async function api(path,body){
+  const r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw Object.assign(new Error(d.error||'api_error'),{status:r.status});
+  return d;
+}
+async function apiGet(path){
+  const r=await fetch('/api/'+path);
+  if(!r.ok) throw new Error('api_error');
+  return r.json();
+}
+let ident=null;
+try{ident=JSON.parse(localStorage.getItem('neon-oink-id'));}catch(e){}
+function pilotTag(){document.getElementById('pilotTag').textContent=ident?('PILOT: '+ident.username):'';}
+function ensureIdent(){
+  if(ident) return Promise.resolve(ident);
+  return new Promise(done=>{
+    const m=document.getElementById('claimModal');
+    m.style.display='flex';
+    const inp=document.getElementById('claimInput'),err=document.getElementById('claimErr');
+    inp.focus();
+    document.getElementById('claimGo').onclick=async()=>{
+      try{
+        const d=await api('user',{action:'claim',username:inp.value});
+        ident=d; localStorage.setItem('neon-oink-id',JSON.stringify(d));
+        m.style.display='none'; pilotTag(); refreshSocial(); done(ident);
+      }catch(e){
+        err.textContent=e.message==='taken'?'NAME TAKEN — TRY ANOTHER':
+          e.message==='bad_name'?'3-10 LETTERS / NUMBERS / _':'SERVER UNREACHABLE — TRY LATER';
+      }
+    };
+    document.getElementById('claimSkip').onclick=()=>{m.style.display='none';done(null);};
+  });
+}
+function utcDayStr(){return new Date().toISOString().slice(0,10);}
+function dailySeedOf(day){let h=0x811c9dc5;for(const c of day){h^=c.charCodeAt(0);h=Math.imul(h,0x01000193)>>>0;}return h&0xFFFFFF;}
+let mode='free',lastRun=null;
+// ---------- online: run end, boards, tabs ----------
+async function onRunEnd(fin){
+  document.getElementById('shareBtn').style.display='inline-block';
+  document.getElementById('duelBtn').style.display='inline-block';
+  if(fin.mode==='daily'){
+    const id=await ensureIdent();
+    if(id){
+      try{await api('scores',{username:id.username,token:id.token,day:utcDayStr(),score:fin.score,lvl:fin.lvl,chain:fin.chain});}catch(e){}
+    }
+    await loadBoards();
+    showTab('today');
+  } else if(fin.mode.startsWith('duel:')){
+    const id=await ensureIdent();
+    if(id){
+      try{
+        const r=await api('social',{username:id.username,token:id.token,action:'resolveDuel',id:fin.mode.slice(5),score:fin.score});
+        document.getElementById('runCode').textContent=r.winner==='tie'?'🤝 DUEL TIED':r.winner===id.username?'🏆 YOU WON THE DUEL!':'💀 DUEL LOST — REMATCH?';
+      }catch(e){}
+    }
+    refreshSocial();
+  }
+}
+let boards=null,curTab='local';
+async function loadBoards(){
+  try{boards=await apiGet('scores?day='+utcDayStr());}catch(e){boards=null;}
+  renderTabs();
+}
+function showTab(t){curTab=t;renderTabs();}
+function renderTabs(){
+  document.getElementById('lbTabs').style.display='flex';
+  document.querySelectorAll('.lbTab').forEach(b=>b.classList.toggle('on',b.dataset.tab===curTab));
+  const el=document.getElementById('lb');
+  if(curTab==='local'){store.get('neon-oink-lb').then(lb=>renderLB(lb||[]));return;}
+  if(!boards){el.innerHTML='<div style="color:#888;padding:4px;">offline — shared board unavailable</div>';return;}
+  let rows=curTab==='today'?(boards.daily||[]):(boards.alltime||[]);
+  if(curTab==='friends'){
+    const fs=new Set(myFriends.concat(ident?[ident.username]:[]));
+    rows=(boards.alltime||[]).filter(r=>fs.has(r.name));
+  }
+  const title=curTab==='today'?'🏆 TODAY':curTab==='friends'?'🏆 FRIENDS':'🏆 ALL-TIME';
+  el.innerHTML=`<div style="color:#39d2ff;font-weight:800;margin-bottom:4px;">${title}</div>`+
+    (rows.length?rows.slice(0,10).map((r,i)=>`<div class="row${ident&&r.name===ident.username?' me':''}"><span>#${i+1} ${r.name}</span><span>LVL${r.lvl} · ${r.score}</span></div>`).join(''):
+     '<div style="color:#888;padding:4px;">no scores yet — be first</div>');
+}
+document.querySelectorAll('.lbTab').forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+document.getElementById('dailyBtn').addEventListener('click',()=>{
+  runSeed=dailySeedOf(utcDayStr());
+  mode='daily';
+  start();
+});
+// ---------- online: share links ----------
+document.getElementById('shareBtn').addEventListener('click',async()=>{
+  if(!lastRun)return;
+  const u=`${location.origin}/?c=${encodeURIComponent(lastRun.code)}&s=${lastRun.score}${ident?'&n='+encodeURIComponent(ident.username):''}`;
+  const txt=`I scored ${lastRun.score} in NEON OINK 🐷 — beat my exact run:`;
+  try{
+    if(navigator.share) await navigator.share({title:'NEON OINK',text:txt,url:u});
+    else{await navigator.clipboard.writeText(txt+' '+u);document.getElementById('runCode').textContent='🔗 LINK COPIED — SEND IT!';}
+  }catch(e){}
+});
+const qp=new URLSearchParams(location.search);
+if(qp.get('c')){
+  const s=codeToSeed(qp.get('c'));
+  if(s!=null){
+    runSeed=s; mode='link';
+    const who=(qp.get('n')||'').replace(/[^A-Z0-9_]/gi,'').slice(0,10);
+    const sc=parseInt(qp.get('s'),10);
+    document.getElementById('runCode').textContent=`⚔️ BEAT ${who||'THIS RUN'}${Number.isFinite(sc)?` — ${sc} TO WIN`:''}`;
+  }
+}
+// ---------- social: friends & duels ----------
+let myFriends=[];
+function flash(msg){document.getElementById('runCode').textContent=msg;}
+async function refreshSocial(){
+  pilotTag();
+  if(!ident)return;
+  document.getElementById('social').style.display='block';
+  let inbox;
+  try{inbox=await api('social',{action:'inbox',username:ident.username,token:ident.token});}catch(e){return;}
+  myFriends=inbox.friends.map(f=>f.name);
+  document.getElementById('friendsList').innerHTML=
+    inbox.friends.map(f=>`<div class="row"><span>${f.name} · ${f.w}W-${f.l}L</span><button class="mini duelF" data-n="${f.name}">⚔️ DUEL</button></div>`).join('')||
+    '<div style="color:#888;">no friends yet — add by name ↓</div>';
+  document.querySelectorAll('.duelF').forEach(b=>b.addEventListener('click',()=>sendDuel(b.dataset.n)));
+  const inc=inbox.incoming[0];
+  const ban=document.getElementById('duelBanner');
+  if(inc){
+    ban.style.display='block';
+    ban.innerHTML=`⚔️ ${inc.from} CHALLENGED YOU — ${inc.fromScore} <button id="acceptDuel">FLY IT</button>`;
+    document.getElementById('acceptDuel').addEventListener('click',()=>{
+      runSeed=inc.seed; mode='duel:'+inc.id; ban.style.display='none'; start();
+    });
+  } else ban.style.display='none';
+  document.getElementById('duelsList').innerHTML=[
+    ...inbox.incoming.slice(1).map(d=>`<div class="row"><span>⚔️ ${d.from} waits · ${d.fromScore}</span></div>`),
+    ...inbox.outgoing.map(d=>`<div class="row"><span>⏳ vs ${d.to} · you flew ${d.fromScore}</span></div>`),
+    ...inbox.results.slice(0,5).map(d=>{
+      const me=ident.username,opp=d.from===me?d.to:d.from;
+      const mark=d.winner==='tie'?'🤝':d.winner===me?'🏆':'💀';
+      const mine=d.from===me?d.fromScore:d.toScore,theirs=d.from===me?d.toScore:d.fromScore;
+      return `<div class="row"><span>${mark} vs ${opp} · ${mine}-${theirs}</span></div>`;
+    })
+  ].join('');
+}
+async function sendDuel(to){
+  if(!lastRun){flash('FINISH A RUN FIRST — THEN DUEL');return;}
+  const id=await ensureIdent(); if(!id)return;
+  try{
+    await api('social',{action:'createDuel',username:id.username,token:id.token,to,seed:lastRun.seed,code:lastRun.code,score:lastRun.score});
+    flash('⚔️ DUEL SENT TO '+to.toUpperCase()); refreshSocial();
+  }catch(e){
+    flash(e.message==='no_user'?'NO PILOT NAMED '+to.toUpperCase():'COULD NOT SEND DUEL');
+  }
+}
+document.getElementById('duelBtn').addEventListener('click',async()=>{
+  const id=await ensureIdent(); if(!id)return;
+  const inp=document.getElementById('friendInput');
+  if(myFriends.length===0&&!inp.value){flash('ADD A FRIEND BELOW, THEN HIT THEIR ⚔️');inp.focus();return;}
+  if(inp.value) sendDuel(inp.value); else flash('HIT ⚔️ NEXT TO A FRIEND BELOW');
+});
+document.getElementById('friendBtn').addEventListener('click',async()=>{
+  const id=await ensureIdent(); if(!id)return;
+  const inp=document.getElementById('friendInput');
+  if(!inp.value)return;
+  try{
+    await api('social',{action:'addFriend',username:id.username,token:id.token,friend:inp.value});
+    inp.value=''; refreshSocial();
+  }catch(e){flash(e.message==='no_user'?'NO PILOT BY THAT NAME':'COULD NOT ADD');}
+});
+refreshSocial();
+loadBoards();
 const overlay=document.getElementById('overlay');
 document.getElementById('startBtn').addEventListener('click',start);
 function start(){
@@ -637,6 +847,9 @@ async function die(){
   document.getElementById('startBtn').textContent='FLY AGAIN';
   overlay.style.display='flex';
   await saveScore();
+  lastRun={seed:runSeed,code:seedToCode(runSeed),score,lvl:level,chain:bestChain,mode};
+  onRunEnd(lastRun);
+  mode='free';
   runSeed=Math.floor(Math.random()*0xFFFFFF);
 }
 function updateHUD(){
