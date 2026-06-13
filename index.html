@@ -15,7 +15,7 @@
 <style>
   html,body{margin:0;padding:0;overflow:hidden;background:#07070f;font-family:'Segoe UI',system-ui,sans-serif;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;}
   #c,#c2{position:fixed;inset:0;display:block;width:100%;height:100%;}
-  #c2{z-index:2;pointer-events:none;opacity:0;transition:opacity .25s;}
+  #c2{z-index:2;pointer-events:none;opacity:0;transform-origin:center center;will-change:opacity,transform,filter;}
   #hud{position:fixed;top:max(12px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right));pointer-events:none;z-index:5;}
   #score{font-size:38px;font-weight:800;color:#fff;text-shadow:0 0 16px rgba(255,255,255,.5);}
   #rings{font-size:13px;font-weight:700;color:#ffd700;}
@@ -165,6 +165,8 @@ const MAX_LEVEL=10;
 const LVL_THRESH=[0,30,70,125,195,285,400,540,710,920];
 let is3D=false,playing=false,dead=false,fpCam=false;
 let mouseHeld=false,turnSm=0,fpY=null,vySm=0;
+let morphT=1,morphActive=false,morphJustEnded=false;
+const MORPH_DUR=.6;
 const flapTouches=new Set();
 let score=0,ringsHit=0,best=0,level=1;
 let switchCooldown=0,speed3=12,distAcc=0,totalDist=0;
@@ -800,16 +802,13 @@ function flap(){
   }
 }
 function toggleDim(){
-  if(renderer.xr.isPresenting) return; // VR is 3D-only
   if(!playing||dead||switchCooldown>0) return;
-  is3D=!is3D; switchCooldown=.4;
+  is3D=!is3D; switchCooldown=Math.max(.4,MORPH_DUR);
+  morphT=0; morphActive=true; // drive the cinematic 2D↔3D crossfade in loop()
   swoosh(is3D);
   const d=document.getElementById('dimTxt');
   d.textContent=is3D?'3D':'2D';
   d.className='dim '+(is3D?'dim3':'dim2');
-  const fl=document.getElementById('flashLayer');
-  fl.classList.remove('flash'); void fl.offsetWidth; fl.classList.add('flash');
-  flatCanvas.style.opacity=is3D?0:1;
   if(!is3D){pig.bank=0; joyId=null; joyVec={x:0,y:0}; joyBase.style.display='none';
     nextInjAt=Math.max(nextInjAt,totalDist+10);}
   joyUI();
@@ -875,7 +874,8 @@ function start(){
   is3D=false; applyPalette();
   const d=document.getElementById('dimTxt'); d.textContent='2D'; d.className='dim dim2';
   document.getElementById('lvl').textContent=`LVL 1 · ${bpm()} BPM`;
-  flatCanvas.style.opacity=1;
+  flatCanvas.style.opacity=1; flatCanvas.style.transform='none'; flatCanvas.style.filter='none';
+  morphT=1; morphActive=false; morphJustEnded=false;
   if(renderer.xr.isPresenting){forceVR3D(); vrMsg.mesh.visible=false;}
   for(const [k,ch] of chunks){scene.remove(ch.group); chunks.delete(k);}
   clearInjected(); nextInjAt=20;
@@ -1184,6 +1184,13 @@ const vrVig=new THREE.Mesh(new THREE.PlaneGeometry(2.4,2.4),
   new THREE.MeshBasicMaterial({map:vrVigTex,color:0x000000,transparent:true,opacity:0,depthTest:false,depthWrite:false,fog:false}));
 vrVig.renderOrder=1000; vrVig.position.set(0,0,-.5); vrVig.visible=false; vrVig.frustumCulled=false;
 cam.add(vrVig);
+// VR flat-mode "theater": the 2D canvas shown on a big screen floating in front of the player
+const vrScreenTex=new THREE.CanvasTexture(flatCanvas);
+vrScreenTex.colorSpace=THREE.SRGBColorSpace;
+const vrScreen=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+  new THREE.MeshBasicMaterial({map:vrScreenTex,toneMapped:false,transparent:true,depthTest:false,depthWrite:false,fog:false}));
+vrScreen.renderOrder=997; vrScreen.position.set(0,0,-3.4); vrScreen.visible=false; vrScreen.frustumCulled=false;
+rig.add(vrScreen);
 // controllers: trigger = flap / glide-hold / start
 for(const i of[0,1]){
   const ctl=renderer.xr.getController(i);
@@ -1192,6 +1199,7 @@ for(const i of[0,1]){
     if(playing&&!dead) flap(); else start();
   });
   ctl.addEventListener('selectend',()=>vrHeld.delete(i));
+  ctl.addEventListener('squeezestart',()=>{if(renderer.xr.isPresenting) toggleDim();}); // grip = flip 2D/3D
   rig.add(ctl);
 }
 function pollVrInput(){
@@ -1211,7 +1219,7 @@ renderer.xr.addEventListener('sessionstart',()=>{
   forceVR3D();
   rigY=null; rigYaw=pig.yaw;
   if(dead) showVrMsg('OINK DOWN','score '+score+' — pull trigger to fly again');
-  else if(!playing) showVrMsg('NEON OINK','pull trigger to fly');
+  else if(!playing) showVrMsg('NEON OINK','pull trigger to fly · grip to flip 2D/3D');
 });
 renderer.xr.addEventListener('sessionend',()=>{
   vrHeld.clear(); vrTurn=0; vrSpeedY=0;
@@ -1238,6 +1246,9 @@ function loop(now){
   const dt=Math.min(.05,(now-last)/1000); last=now;
   const xrOn=renderer.xr.isPresenting;
   if(xrOn) pollVrInput();
+  // advance the 2D↔3D morph timer (smoothstep eased)
+  if(morphActive){ morphT=Math.min(1,morphT+dt/MORPH_DUR); if(morphT>=1){morphActive=false; morphJustEnded=true;} }
+  const mE=morphT<=0?0:morphT>=1?1:morphT*morphT*(3-2*morphT);
   const fwd=new THREE.Vector3(Math.cos(pig.yaw),0,-Math.sin(pig.yaw));
   const side=new THREE.Vector3(-fwd.z,0,fwd.x);
   if(playing&&!dead){
@@ -1275,7 +1286,7 @@ function loop(now){
   } else {
     updateDynamics(now,dt);
   }
-  if(is3D||!playing){
+  if(is3D||!playing||xrOn||morphActive){
     pigMesh.position.copy(pig.pos);
     pigMesh.rotation.set(0,pig.yaw,0);
     pigMesh.rotateZ(Math.max(-.6,Math.min(.5,pig.vy*.045)));
@@ -1299,14 +1310,21 @@ function loop(now){
     });
     const fp=fpCam&&is3D&&playing;
     pigMesh.visible=!(fp||xrOn);
-    if(xrOn){
-      // VR: position/orient the rig at the pig's first-person anchor; the headset owns
+    if(xrOn&&is3D){
+      // VR 3D: position/orient the rig at the pig's first-person anchor; the headset owns
       // head orientation inside the rig. Height + yaw are lerped for comfort.
       const ty=pig.pos.y+.7;
       rigY=rigY==null?ty:rigY+(ty-rigY)*Math.min(1,dt*7);
       rigYaw+=(pig.yaw-rigYaw)*Math.min(1,dt*7);
       rig.position.set(pig.pos.x+Math.cos(rigYaw)*1.2,rigY,pig.pos.z-Math.sin(rigYaw)*1.2);
       rig.rotation.set(0,rigYaw-Math.PI/2,0); // cam looks -Z; world forward at yaw 0 is +X
+    } else if(xrOn){
+      // VR 2D theater: stable, level rig so the player calmly watches the flat game on a floating screen
+      rigYaw+=(pig.yaw-rigYaw)*Math.min(1,dt*5);
+      const ty=12;
+      rigY=rigY==null?ty:rigY+(ty-rigY)*Math.min(1,dt*3);
+      rig.position.set(pig.pos.x,rigY,pig.pos.z);
+      rig.rotation.set(0,rigYaw-Math.PI/2,0);
     } else if(fp){
       // first person: ride the snout — altitude + pitch heavily smoothed so flap impulses don't jolt the view
       const ty=pig.pos.y+.7;
@@ -1339,12 +1357,22 @@ function loop(now){
     if(!xrOn){
       // speed-reactive FOV kick in 3D (never in VR — headset owns projection)
       const tf=(is3D&&playing)?Math.min(76,62+(speed3-SPEED_MIN)*.55):62;
-      cam.fov+=(tf-cam.fov)*Math.min(1,dt*4); cam.updateProjectionMatrix();
+      // morph: punch the FOV wide and ease back so the flip feels like rushing through, not a cut
+      if(morphActive){ cam.fov=tf+(1-mE)*24; }
+      else cam.fov+=(tf-cam.fov)*Math.min(1,dt*4);
+      cam.updateProjectionMatrix();
     } else {
       vrHud.mesh.visible=playing&&!dead;
       if(vrHud.mesh.visible) drawVrHud();
-      // comfort tunnel: fade in with turn rate + strong vertical motion, cap .6
-      const vt=(playing&&!dead)?Math.min(.6,Math.abs(turnSm)*.55+Math.max(0,Math.abs(pig.vy)-7)*.02):0;
+      // 2D theater screen: sized to canvas aspect; crossfades during a morph
+      vrScreen.visible=(!is3D)||morphActive;
+      if(vrScreen.visible){
+        vrScreen.material.opacity=morphActive?(is3D?1-mE:mE):1;
+        const ag=flatCanvas.width/Math.max(1,flatCanvas.height),h=3;
+        vrScreen.scale.set(h*ag,h,1);
+      }
+      // comfort tunnel: fade in with turn rate + strong vertical motion (3D only — 2D theater is static), cap .6
+      const vt=(playing&&!dead&&is3D)?Math.min(.6,Math.abs(turnSm)*.55+Math.max(0,Math.abs(pig.vy)-7)*.02):0;
       vrVig.material.opacity+=(vt-vrVig.material.opacity)*Math.min(1,dt*5);
       vrVig.visible=vrVig.material.opacity>.015;
     }
@@ -1354,6 +1382,23 @@ function loop(now){
     renderer.render(scene,cam);
   }
   if(!is3D) draw2D(fwd,side,now);
+  if(xrOn&&!is3D) vrScreenTex.needsUpdate=true; // push the freshly drawn 2D frame onto the VR screen
+  // flat-path cinematic crossfade: the 2D overlay dissolves + zooms as the 3D world surges in (and vice versa)
+  if(!xrOn){
+    if(morphActive){
+      const op=is3D?1-mE:mE;          // entering 3D → 2D layer fades out; entering 2D → fades in
+      const sc=is3D?1+mE*.14:1+(1-mE)*.14;
+      const bl=is3D?mE*7:(1-mE)*7;
+      flatCanvas.style.opacity=op;
+      flatCanvas.style.transform='scale('+sc+')';
+      flatCanvas.style.filter='blur('+bl+'px)';
+    } else if(morphJustEnded){
+      morphJustEnded=false;
+      flatCanvas.style.opacity=is3D?0:1;
+      flatCanvas.style.transform='none';
+      flatCanvas.style.filter='none';
+    }
+  }
 }
 applyPalette();
 (async()=>{
