@@ -94,8 +94,8 @@
 <div id="overlay">
   <h1>NEON OINK</h1>
   <p><b style="color:#39d2ff">2D</b> flat rhythm flyer · <b style="color:#ff2fb9">3D</b> open neon world — flip anytime.</p>
-  <p class="pcOnly"><span class="key">L-CLICK</span>/<span class="key">SPACE</span> flap · <span class="key">R-CLICK</span>/<span class="key">TAB</span> flip · <span class="key">A</span><span class="key">D</span> turn · <span class="key">W</span><span class="key">S</span> speed</p>
-  <p class="mobileOnly" style="display:none;"><b>TAP</b> to flap · <b>FLIP button</b> to swap dimensions · in 3D, <b>left thumb</b> = joystick steer, <b>right thumb</b> = flap</p>
+  <p class="pcOnly"><span class="key">L-CLICK</span>/<span class="key">SPACE</span> flap · <b>hold to glide</b> · <span class="key">R-CLICK</span>/<span class="key">TAB</span> flip · <span class="key">A</span><span class="key">D</span> turn · <span class="key">W</span><span class="key">S</span> speed</p>
+  <p class="mobileOnly" style="display:none;"><b>TAP</b> to flap · <b>HOLD</b> to glide · <b>FLIP button</b> to swap dimensions · in 3D, <b>left thumb</b> = joystick steer, <b>right thumb</b> = flap</p>
   <p style="color:#ff9de2"><b>FLAP ON THE BEAT.</b> Chain on-beat flaps for 2× → 3× → 4× score.</p>
   <p style="color:#9ef01a">Each level demands more points than the last. Survive to LVL 10 if you can.</p>
   <div id="finalScore"></div>
@@ -161,6 +161,8 @@ const MAX_LEVEL=10;
 // escalating score thresholds — LVL_THRESH[i] = score needed to reach level i+1
 const LVL_THRESH=[0,30,70,125,195,285,400,540,710,920];
 let is3D=false,playing=false,dead=false,fpCam=false;
+let mouseHeld=false,turnSm=0,fpY=null,vySm=0;
+const flapTouches=new Set();
 let score=0,ringsHit=0,best=0,level=1;
 let switchCooldown=0,speed3=12,distAcc=0,totalDist=0;
 let runSeed=Math.floor(Math.random()*0xFFFFFF);
@@ -698,7 +700,7 @@ function clearInjected(){
 // ---------- input: keyboard ----------
 addEventListener('keydown',e=>{
   keys[e.code]=true;
-  if(e.code==='Space'){e.preventDefault(); playing?flap():start();}
+  if(e.code==='Space'){e.preventDefault(); if(!e.repeat){playing?flap():start();}}
   if(e.code==='Tab'){e.preventDefault(); toggleDim();}
 });
 addEventListener('keyup',e=>keys[e.code]=false);
@@ -707,8 +709,9 @@ addEventListener('pointerdown',e=>{
   if(e.pointerType==='touch') return;
   if(e.button===2){toggleDim();return;}
   if(e.target.closest('#overlay,#switchBtn')) return;
-  if(e.button===0&&playing) flap();
+  if(e.button===0&&playing){flap(); mouseHeld=true;}
 });
+addEventListener('pointerup',e=>{if(e.button===0)mouseHeld=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
 document.getElementById('switchBtn').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();toggleDim();});
 // ---------- input: touch (mobile) ----------
@@ -732,6 +735,7 @@ addEventListener('touchstart',e=>{
       joyBase.style.top=(t.clientY-55)+'px';
       joyKnob.style.transform='translate(-50%,-50%)';
     } else {
+      flapTouches.add(t.identifier);
       if(playing) flap(); else if(!dead&&document.getElementById('overlay').style.display==='none') flap();
     }
   }
@@ -749,14 +753,30 @@ addEventListener('touchmove',e=>{
 },{passive:true});
 addEventListener('touchend',e=>{
   for(const t of e.changedTouches){
+    flapTouches.delete(t.identifier);
     if(t.identifier===joyId){
       joyId=null; joyVec={x:0,y:0};
       joyBase.style.display='none';
     }
   }
 },{passive:true});
+addEventListener('touchcancel',e=>{
+  for(const t of e.changedTouches){
+    flapTouches.delete(t.identifier);
+    if(t.identifier===joyId){
+      joyId=null; joyVec={x:0,y:0};
+      joyBase.style.display='none';
+    }
+  }
+},{passive:true});
+const gliding=()=>playing&&!dead&&(keys['Space']||mouseHeld||flapTouches.size>0);
+let lastFlap=0;
 function flap(){
   if(dead||pig.stun>0) return;
+  // rate-cap flaps so autoclickers/spam can't exceed human-possible control (~7.7/s)
+  const tMs=performance.now();
+  if(tMs-lastFlap<130) return;
+  lastFlap=tMs;
   pig.vy=FLAP_V;
   if(checkBeat()){
     beatChain++; bestChain=Math.max(bestChain,beatChain);
@@ -842,6 +862,7 @@ function start(){
   overlay.style.display='none';
   playing=true; dead=false; score=0; ringsHit=0; distAcc=0; totalDist=0; level=1;
   beatChain=0; bestChain=0; multiplier=1;
+  turnSm=0; fpY=null; vySm=0; mouseHeld=false; flapTouches.clear();
   speed3=baseSpeed3D();
   pig.pos.set(0,9,0); pig.vy=4; pig.yaw=0; pig.bank=0; pig.stun=0;
   is3D=false; applyPalette();
@@ -1035,7 +1056,7 @@ function draw2D(fwd,side,now){
   const tilt=Math.max(-.5,Math.min(.45,-pig.vy*.04));
   ctx.save();
   ctx.translate(pigSX,py); ctx.rotate(tilt);
-  const wing=Math.sin(now*.02)*(pig.vy>0?.9:.35);
+  const wing=(gliding()&&pig.vy<=0)?.2+Math.sin(now*.006)*.07:Math.sin(now*.02)*(pig.vy>0?.9:.35);
   ctx.save(); ctx.rotate(-.3+wing*.5);
   ctx.fillStyle=multiplier>=3?'#9ef01a':'rgba(255,255,255,.95)';
   ctx.beginPath(); ctx.ellipse(-4,-16,16,8,-.5,0,7); ctx.fill();
@@ -1099,16 +1120,18 @@ function loop(now){
       if(keys['KeyA']||keys['ArrowLeft']) turn+=1;
       if(keys['KeyD']||keys['ArrowRight']) turn-=1;
       turn+=-joyVec.x;
-      pig.yaw+=turn*TURN_RATE*dt;
       if(keys['KeyW']||keys['ArrowUp']) speed3=Math.min(SPEED_MAX,speed3+10*dt);
       if(keys['KeyS']||keys['ArrowDown']) speed3=Math.max(SPEED_MIN,speed3-12*dt);
       if(joyVec.y!==0) speed3=Math.max(SPEED_MIN,Math.min(SPEED_MAX,speed3-joyVec.y*14*dt));
     }
-    const targetBank=is3D?Math.max(-1,Math.min(1,turn))*.55:0;
+    turnSm+=((is3D?Math.max(-1,Math.min(1,turn)):0)-turnSm)*Math.min(1,dt*8);
+    if(is3D) pig.yaw+=turnSm*TURN_RATE*dt;
+    const targetBank=is3D?turnSm*.55:0;
     pig.bank+=(targetBank-pig.bank)*Math.min(1,dt*6);
     const spd=is3D?Math.max(speed3,baseSpeed3D()*.8):baseSpeed2D();
     pig.pos.addScaledVector(fwd,spd*dt);
     pig.vy+=GRAV*dt;
+    if(gliding()) pig.vy=Math.max(pig.vy,-3.2);
     pig.pos.y+=pig.vy*dt;
     if(pig.pos.y>CEIL){pig.pos.y=CEIL; pig.vy=Math.min(0,pig.vy);}
     totalDist+=spd*dt; distAcc+=spd*dt;
@@ -1125,7 +1148,7 @@ function loop(now){
     pigMesh.rotation.set(0,pig.yaw,0);
     pigMesh.rotateZ(Math.max(-.6,Math.min(.5,pig.vy*.045)));
     pigMesh.rotateX(-pig.bank);
-    const wt=Math.sin(now*.02)*(pig.vy>0?.85:.3);
+    const wt=(gliding()&&pig.vy<=0)?.12+Math.sin(now*.006)*.06:Math.sin(now*.02)*(pig.vy>0?.85:.3);
     pigMesh.userData.wings[0].rotation.x=wt;
     pigMesh.userData.wings[1].rotation.x=-wt;
     ground.position.x=pig.pos.x; ground.position.z=pig.pos.z;
@@ -1145,13 +1168,17 @@ function loop(now){
     const fp=fpCam&&is3D&&playing;
     pigMesh.visible=!fp;
     if(fp){
-      // first person: ride the snout, pitch with vertical speed, roll into turns
-      cam.position.set(pig.pos.x+fwd.x*1.2,pig.pos.y+.7,pig.pos.z+fwd.z*1.2);
+      // first person: ride the snout — altitude + pitch heavily smoothed so flap impulses don't jolt the view
+      const ty=pig.pos.y+.7;
+      fpY=fpY==null?ty:fpY+(ty-fpY)*Math.min(1,dt*7);
+      vySm+=(pig.vy-vySm)*Math.min(1,dt*5);
+      cam.position.set(pig.pos.x+fwd.x*1.2,fpY,pig.pos.z+fwd.z*1.2);
       const l1=pig.pos.clone().addScaledVector(fwd,14);
-      l1.y=pig.pos.y+.7+Math.max(-4,Math.min(4,pig.vy*.22));
+      l1.y=fpY+Math.max(-3.5,Math.min(3.5,vySm*.18));
       cam.lookAt(l1);
       cam.rotateZ(pig.bank*.5);
     } else {
+      fpY=null; vySm=0;
       const p3=pig.pos.clone().addScaledVector(fwd,-11); p3.y=pig.pos.y+4.2;
       const l3=pig.pos.clone().addScaledVector(fwd,10); l3.y=pig.pos.y;
       cam.position.lerp(p3,Math.min(1,dt*6));
