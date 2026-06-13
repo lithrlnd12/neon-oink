@@ -1277,15 +1277,16 @@ for(let i=0;i<BOTN;i++){
   const mesh=buildPig(tint,darken(tint));
   mesh.traverse(o=>{if(o.isMesh)o.castShadow=true;});
   mesh.visible=false; scene.add(mesh);
-  bots.push({pos:new THREE.Vector3(),vy:0,yaw:0,hp:COMBAT_HP,alive:false,respawn:0,fireCd:1,mesh,bob:Math.random()*6.28,col2d:'#'+tint.toString(16).padStart(6,'0')});
+  bots.push({pos:new THREE.Vector3(),vy:0,yaw:0,hp:COMBAT_HP,alive:false,respawn:0,fireCd:1,mesh,bob:Math.random()*6.28,col2d:'#'+tint.toString(16).padStart(6,'0'),tintHex:tint,poopT:0});
 }
-const beams=[],poops=[],puffs=[];
+const beams=[],poops=[],puffs=[],gibs=[];
 const _eye=new THREE.Vector3(),_aim=new THREE.Vector3(),_v=new THREE.Vector3();
 const UP=new THREE.Vector3(0,1,0);
 function fwdOf(yaw){return new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));}
 function pigEye(p,yaw,out){const c=Math.cos(yaw),s=-Math.sin(yaw);return out.set(p.x+c*1.5,p.y+.5,p.z+s*1.5);}
 function zap(rise){if(!AC)return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.setValueAtTime(rise?320:900,t);o.frequency.exponentialRampToValueAtTime(rise?900:120,t+.12);g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+.16);}
-function splatSfx(){if(!AC)return;const t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=600;const g=AC.createGain();g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);s.connect(f);f.connect(g);g.connect(masterGain);s.start(t);s.stop(t+.32);}
+function splatSfx(){if(!AC)return;const t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=600;const g=AC.createGain();g.gain.setValueAtTime(.4,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);s.connect(f);f.connect(g);g.connect(masterGain);s.start(t);s.stop(t+.32);}
+function plop(){if(!AC)return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='sine';o.frequency.setValueAtTime(360,t);o.frequency.exponentialRampToValueAtTime(80,t+.18);g.gain.setValueAtTime(.28,t);g.gain.exponentialRampToValueAtTime(.001,t+.2);o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+.22);}
 function spawnBeam(a,b,col){
   const len=Math.max(.2,a.distanceTo(b));
   const m=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,len,6),
@@ -1337,15 +1338,25 @@ function respawnBot(b){
   const a=Math.random()*6.28,R=26+Math.random()*14;
   b.pos.set(pig.pos.x+Math.cos(a)*R, Math.max(FLOOR+3,Math.min(CEIL-2,pig.pos.y+(Math.random()-.5)*10)), pig.pos.z+Math.sin(a)*R);
   b.vy=0; b.yaw=a+Math.PI; b.hp=COMBAT_HP; b.alive=true; b.fireCd=.8+Math.random(); b.mesh.visible=true;
+  b.poopT=0; b.mesh.userData.bodyMat.color.set(b.tintHex);
 }
 function spawnPoop(){
-  const m=new THREE.Mesh(new THREE.SphereGeometry(.32,8,6),new THREE.MeshStandardMaterial({color:0x6b4423,roughness:1}));
-  m.position.copy(pig.pos); m.position.y-=.6; m.castShadow=true; scene.add(m);
-  poops.push({mesh:m,pos:m.position,vy:-3,life:5}); zap(false);
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.45,8,6),new THREE.MeshStandardMaterial({color:0x6b4423,roughness:1}));
+  m.scale.y=1.25; m.position.copy(pig.pos); m.position.y-=.7; m.castShadow=true; scene.add(m);
+  poops.push({mesh:m,pos:m.position,vy:-3,life:6,spin:Math.random()*6.28}); plop();
 }
+function spawnGib(p){
+  const c=Math.random()<.4?0x5a3a1e:0x7a4f2a;
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.1+Math.random()*.18,6,5),
+    new THREE.MeshStandardMaterial({color:c,roughness:1,transparent:true}));
+  m.position.copy(p); scene.add(m);
+  const a=Math.random()*6.28,out=2+Math.random()*5;
+  gibs.push({mesh:m,vel:new THREE.Vector3(Math.cos(a)*out,3+Math.random()*6,Math.sin(a)*out),life:.7+Math.random()*.4});
+}
+function poopExplode(p){ spawnPuff(p,0x6b4423); for(let i=0;i<14;i++) spawnGib(p); splatSfx(); }
 function splatPoop(p){
-  spawnPuff(p,0x6b4423); splatSfx();
-  for(const b of bots){ if(b.alive&&b.pos.distanceTo(p)<5){ b.hp-=POOP_DMG*(1-b.pos.distanceTo(p)/6); if(b.hp<=0) koBot(b); } }
+  poopExplode(p);
+  for(const b of bots){ if(b.alive&&b.pos.distanceTo(p)<5.5){ b.poopT=1.8; b.hp-=POOP_DMG*(1-b.pos.distanceTo(p)/6.5); if(b.hp<=0) koBot(b); } }
 }
 function angTo(cur,want){let d=(want-cur)%(Math.PI*2); if(d>Math.PI)d-=Math.PI*2; if(d<-Math.PI)d+=Math.PI*2; return d;}
 function updateCombat(dt,now,fwd,side){
@@ -1375,10 +1386,13 @@ function updateCombat(dt,now,fwd,side){
     b.mesh.rotation.set(0,b.yaw,0); b.mesh.rotateZ(Math.sin(now*.02+b.bob)*.1);
     const wt=Math.sin(now*.018+b.bob)*.7;
     b.mesh.userData.wings[0].rotation.x=wt; b.mesh.userData.wings[1].rotation.x=-wt;
+    b.poopT=Math.max(0,b.poopT-dt);                         // poop-stained enemies turn brown
+    b.mesh.userData.bodyMat.color.set(b.poopT>0?0x6b4423:b.tintHex);
   }
   // poop bombs
   for(let i=poops.length-1;i>=0;i--){
     const p=poops[i]; p.vy+=GRAV*dt; p.pos.y+=p.vy*dt; p.life-=dt;
+    p.mesh.rotation.x+=dt*7; p.mesh.rotation.z+=dt*5;       // tumbling turd
     let done=false;
     for(const b of bots){ if(b.alive&&p.pos.distanceTo(b.pos)<2.2){ done=true; break; } }
     if(p.pos.y<FLOOR||done||p.life<=0){ if(p.pos.y<FLOOR){p.pos.y=FLOOR;} splatPoop(p.pos); scene.remove(p.mesh); p.mesh.geometry.dispose(); poops.splice(i,1); }
@@ -1386,6 +1400,7 @@ function updateCombat(dt,now,fwd,side){
   // VFX lifetimes
   for(let i=beams.length-1;i>=0;i--){ const x=beams[i]; x.life-=dt; if(x.life<=0){scene.remove(x.mesh);x.mesh.geometry.dispose();beams.splice(i,1);} else x.mesh.material.opacity=.95*(x.life/x.max); }
   for(let i=puffs.length-1;i>=0;i--){ const x=puffs[i]; x.life-=dt; if(x.life<=0){scene.remove(x.mesh);x.mesh.geometry.dispose();puffs.splice(i,1);} else { const f=1-x.life/x.max; x.mesh.scale.setScalar(1+f*3); x.mesh.material.opacity=.9*(1-f); } }
+  for(let i=gibs.length-1;i>=0;i--){ const g=gibs[i]; g.vel.y+=GRAV*dt; g.mesh.position.addScaledVector(g.vel,dt); g.mesh.rotation.x+=dt*6; g.life-=dt; if(g.life<=0||g.mesh.position.y<FLOOR){scene.remove(g.mesh);g.mesh.geometry.dispose();g.mesh.material.dispose();gibs.splice(i,1);} else g.mesh.material.opacity=Math.min(1,g.life*2.5); }
   // player invuln blink
   pigMesh.visible=!(fpCam&&is3D)&&!(invulnT>0&&Math.floor(now*.02)%2===0);
 }
@@ -1426,6 +1441,7 @@ function combatSetVisible(on){
     for(const x of beams){scene.remove(x.mesh);x.mesh.geometry.dispose();} beams.length=0;
     for(const x of puffs){scene.remove(x.mesh);x.mesh.geometry.dispose();} puffs.length=0;
     for(const p of poops){scene.remove(p.mesh);p.mesh.geometry.dispose();} poops.length=0;
+    for(const g of gibs){scene.remove(g.mesh);g.mesh.geometry.dispose();g.mesh.material.dispose();} gibs.length=0;
     document.getElementById('hurt').style.opacity=0;
   }
 }
