@@ -114,6 +114,7 @@
 <script type="module">
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+import {VRButton} from 'three/addons/webxr/VRButton.js';
 (() => {
 const memStore={};
 const store={
@@ -151,6 +152,8 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1.15;
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.xr.enabled=true;
+renderer.xr.setReferenceSpaceType('local');
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x8ecae6);
 scene.fog=new THREE.Fog(0x8ecae6,70,240);
@@ -286,6 +289,9 @@ function checkBeat(){
   return ph<.09||bi-ph<.09;
 }
 const cam=new THREE.PerspectiveCamera(62,1,.1,500);
+// camera rig: identity when not presenting (cam moves directly, exactly as before);
+// in VR the rig is what we position/orient and the headset drives cam inside it.
+const rig=new THREE.Group(); rig.add(cam); scene.add(rig);
 function resize(){
   renderer.setSize(innerWidth,innerHeight,false);
   cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix();
@@ -769,7 +775,7 @@ addEventListener('touchcancel',e=>{
     }
   }
 },{passive:true});
-const gliding=()=>playing&&!dead&&(keys['Space']||mouseHeld||flapTouches.size>0);
+const gliding=()=>playing&&!dead&&(keys['Space']||mouseHeld||flapTouches.size>0||vrHeld.size>0);
 let lastFlap=0;
 function flap(){
   if(dead||pig.stun>0) return;
@@ -794,6 +800,7 @@ function flap(){
   }
 }
 function toggleDim(){
+  if(renderer.xr.isPresenting) return; // VR is 3D-only
   if(!playing||dead||switchCooldown>0) return;
   is3D=!is3D; switchCooldown=.4;
   swoosh(is3D);
@@ -869,6 +876,7 @@ function start(){
   const d=document.getElementById('dimTxt'); d.textContent='2D'; d.className='dim dim2';
   document.getElementById('lvl').textContent=`LVL 1 · ${bpm()} BPM`;
   flatCanvas.style.opacity=1;
+  if(renderer.xr.isPresenting){forceVR3D(); vrMsg.mesh.visible=false;}
   for(const [k,ch] of chunks){scene.remove(ch.group); chunks.delete(k);}
   clearInjected(); nextInjAt=20;
   if(AC){beatRef=AC.currentTime+.1; schedNext=beatRef; beatCount=0;}
@@ -883,6 +891,7 @@ async function die(){
   document.querySelector('#overlay h1').textContent='NEON OINK';
   document.getElementById('startBtn').textContent='FLY AGAIN';
   overlay.style.display='flex';
+  if(renderer.xr.isPresenting) showVrMsg('OINK DOWN','score '+score+' — pull trigger to fly again');
   await saveScore();
   runSeed=Math.floor(Math.random()*0xFFFFFF);
 }
@@ -1106,10 +1115,129 @@ function shade(hex,f){
   const r=Math.round(((p>>16)&255)*f),g=Math.round(((p>>8)&255)*f),b=Math.round((p&255)*f);
   return `rgb(${r},${g},${b})`;
 }
+// ---------- WebXR VR support ----------
+const vrHeld=new Set();          // controllers currently holding trigger (glide)
+let rigY=null,rigYaw=0;          // smoothed rig height/yaw (comfort)
+let vrTurn=0,vrSpeedY=0;         // left thumbstick state, polled per frame
+const vrTmp=new THREE.Vector3();
+function forceVR3D(){
+  is3D=true;
+  const d=document.getElementById('dimTxt');
+  d.textContent='3D'; d.className='dim dim3';
+  flatCanvas.style.opacity=0;
+  pig.bank=0; joyId=null; joyVec={x:0,y:0}; joyBase.style.display='none';
+  joyUI();
+}
+function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function makeVrPanel(w,h,pw,ph){
+  const cv=document.createElement('canvas'); cv.width=pw; cv.height=ph;
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+    new THREE.MeshBasicMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,fog:false}));
+  mesh.renderOrder=998; mesh.visible=false; mesh.frustumCulled=false;
+  return {ctx:cv.getContext('2d'),tex,mesh};
+}
+// in-world HUD: bottom-center of view, ~20° below forward, 2m away
+const vrHud=makeVrPanel(.8,.25,512,160);
+vrHud.mesh.position.set(0,-.73,-2); vrHud.mesh.rotation.x=-.32; rig.add(vrHud.mesh);
+let vrHudKey='';
+function drawVrHud(){
+  const k=score+'|'+ringsHit+'|'+multiplier+'|'+level;
+  if(k===vrHudKey) return; vrHudKey=k;
+  const c=vrHud.ctx;
+  c.clearRect(0,0,512,160);
+  c.fillStyle='rgba(12,14,26,.8)'; rrect(c,4,4,504,152,26); c.fill();
+  c.textBaseline='middle';
+  c.fillStyle='#fff'; c.font='900 62px system-ui,sans-serif'; c.textAlign='left';
+  c.fillText(score,36,56);
+  c.font='700 30px system-ui,sans-serif'; c.fillStyle='#ffd700';
+  c.fillText('RINGS '+ringsHit,36,118);
+  c.fillStyle='#9ef01a'; c.textAlign='right'; c.fillText('LVL '+level,476,118);
+  if(multiplier>1){c.fillStyle='#fff'; c.font='900 44px system-ui,sans-serif'; c.fillText(multiplier+'×',476,56);}
+  vrHud.tex.needsUpdate=true;
+}
+// in-world message panel (menu / death — the DOM overlay is invisible in-headset)
+const vrMsg=makeVrPanel(1.5,.45,1024,300);
+vrMsg.mesh.position.set(0,-.1,-2.2); rig.add(vrMsg.mesh);
+function showVrMsg(title,sub){
+  const c=vrMsg.ctx;
+  c.clearRect(0,0,1024,300);
+  c.fillStyle='rgba(12,14,26,.85)'; rrect(c,4,4,1016,292,34); c.fill();
+  c.textAlign='center'; c.textBaseline='middle';
+  c.fillStyle='#fff'; c.font='900 88px system-ui,sans-serif';
+  c.fillText(title,512,110);
+  c.font='700 44px system-ui,sans-serif'; c.fillStyle='#cfd6ff';
+  c.fillText(sub,512,212);
+  vrMsg.tex.needsUpdate=true;
+  vrMsg.mesh.visible=true;
+}
+// comfort tunnel vignette: alpha-gradient quad parented to the camera
+const vrVigCv=document.createElement('canvas'); vrVigCv.width=vrVigCv.height=256;
+{
+  const c=vrVigCv.getContext('2d');
+  const g=c.createRadialGradient(128,128,0,128,128,128);
+  g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(.5,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,1)');
+  c.fillStyle=g; c.fillRect(0,0,256,256);
+}
+const vrVigTex=new THREE.CanvasTexture(vrVigCv);
+const vrVig=new THREE.Mesh(new THREE.PlaneGeometry(2.4,2.4),
+  new THREE.MeshBasicMaterial({map:vrVigTex,color:0x000000,transparent:true,opacity:0,depthTest:false,depthWrite:false,fog:false}));
+vrVig.renderOrder=1000; vrVig.position.set(0,0,-.5); vrVig.visible=false; vrVig.frustumCulled=false;
+cam.add(vrVig);
+// controllers: trigger = flap / glide-hold / start
+for(const i of[0,1]){
+  const ctl=renderer.xr.getController(i);
+  ctl.addEventListener('selectstart',()=>{
+    vrHeld.add(i);
+    if(playing&&!dead) flap(); else start();
+  });
+  ctl.addEventListener('selectend',()=>vrHeld.delete(i));
+  rig.add(ctl);
+}
+function pollVrInput(){
+  vrTurn=0; vrSpeedY=0;
+  const s=renderer.xr.getSession(); if(!s) return;
+  for(const src of s.inputSources){
+    const gp=src.gamepad;
+    if(!gp||src.handedness!=='left') continue;
+    const ax=gp.axes;
+    const x=ax.length>=4?ax[2]:(ax[0]||0);
+    const y=ax.length>=4?ax[3]:(ax[1]||0);
+    if(Math.abs(x)>.12) vrTurn=-x;   // stick right → turn right (same sign convention as joyVec)
+    if(Math.abs(y)>.12) vrSpeedY=y;  // stick forward (negative) → faster, like W
+  }
+}
+renderer.xr.addEventListener('sessionstart',()=>{
+  forceVR3D();
+  rigY=null; rigYaw=pig.yaw;
+  if(dead) showVrMsg('OINK DOWN','score '+score+' — pull trigger to fly again');
+  else if(!playing) showVrMsg('NEON OINK','pull trigger to fly');
+});
+renderer.xr.addEventListener('sessionend',()=>{
+  vrHeld.clear(); vrTurn=0; vrSpeedY=0;
+  rig.position.set(0,0,0); rig.rotation.set(0,0,0);
+  vrHud.mesh.visible=false; vrMsg.mesh.visible=false;
+  vrVig.visible=false; vrVig.material.opacity=0;
+});
+if(navigator.xr&&navigator.xr.isSessionSupported){
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+    if(!ok) return;
+    const btn=VRButton.createButton(renderer);
+    btn.style.zIndex='30';
+    btn.style.bottom='calc(env(safe-area-inset-bottom,0px) + 24px)';
+    btn.style.background='rgba(17,20,42,.92)';
+    btn.style.border='1px solid #4a5388';
+    btn.style.color='#fff';
+    btn.style.font='800 13px system-ui,sans-serif';
+    btn.style.opacity='1';
+    document.body.appendChild(btn);
+  }).catch(()=>{});
+}
 let last=performance.now();
 function loop(now){
-  requestAnimationFrame(loop);
   const dt=Math.min(.05,(now-last)/1000); last=now;
+  const xrOn=renderer.xr.isPresenting;
+  if(xrOn) pollVrInput();
   const fwd=new THREE.Vector3(Math.cos(pig.yaw),0,-Math.sin(pig.yaw));
   const side=new THREE.Vector3(-fwd.z,0,fwd.x);
   if(playing&&!dead){
@@ -1123,6 +1251,10 @@ function loop(now){
       if(keys['KeyW']||keys['ArrowUp']) speed3=Math.min(SPEED_MAX,speed3+10*dt);
       if(keys['KeyS']||keys['ArrowDown']) speed3=Math.max(SPEED_MIN,speed3-12*dt);
       if(joyVec.y!==0) speed3=Math.max(SPEED_MIN,Math.min(SPEED_MAX,speed3-joyVec.y*14*dt));
+      if(xrOn){
+        turn+=vrTurn;
+        if(vrSpeedY!==0) speed3=Math.max(SPEED_MIN,Math.min(SPEED_MAX,speed3-vrSpeedY*14*dt));
+      }
     }
     turnSm+=((is3D?Math.max(-1,Math.min(1,turn)):0)-turnSm)*Math.min(1,dt*8);
     if(is3D) pig.yaw+=turnSm*TURN_RATE*dt;
@@ -1166,8 +1298,16 @@ function loop(now){
       }
     });
     const fp=fpCam&&is3D&&playing;
-    pigMesh.visible=!fp;
-    if(fp){
+    pigMesh.visible=!(fp||xrOn);
+    if(xrOn){
+      // VR: position/orient the rig at the pig's first-person anchor; the headset owns
+      // head orientation inside the rig. Height + yaw are lerped for comfort.
+      const ty=pig.pos.y+.7;
+      rigY=rigY==null?ty:rigY+(ty-rigY)*Math.min(1,dt*7);
+      rigYaw+=(pig.yaw-rigYaw)*Math.min(1,dt*7);
+      rig.position.set(pig.pos.x+Math.cos(rigYaw)*1.2,rigY,pig.pos.z-Math.sin(rigYaw)*1.2);
+      rig.rotation.set(0,rigYaw-Math.PI/2,0); // cam looks -Z; world forward at yaw 0 is +X
+    } else if(fp){
       // first person: ride the snout — altitude + pitch heavily smoothed so flap impulses don't jolt the view
       const ty=pig.pos.y+.7;
       fpY=fpY==null?ty:fpY+(ty-fpY)*Math.min(1,dt*7);
@@ -1184,19 +1324,30 @@ function loop(now){
       cam.position.lerp(p3,Math.min(1,dt*6));
       cam.lookAt(l3);
     }
-    skyDome.position.copy(cam.position);
-    stars.position.copy(cam.position);
-    cel.position.set(cam.position.x+150,165,cam.position.z-190);
-    skyMat.uniforms.sunDir.value.copy(cel.position).sub(cam.position).normalize();
+    let camWP=cam.position;
+    if(xrOn){rig.updateMatrixWorld(true); camWP=cam.getWorldPosition(vrTmp);}
+    skyDome.position.copy(camWP);
+    stars.position.copy(camWP);
+    cel.position.set(camWP.x+150,165,camWP.z-190);
+    skyMat.uniforms.sunDir.value.copy(cel.position).sub(camWP).normalize();
     mtns.forEach(m=>{
       if(Math.hypot(m.position.x-pig.pos.x,m.position.z-pig.pos.z)>300){
         const a=Math.random()*Math.PI*2,R=185+Math.random()*45;
         m.position.set(pig.pos.x+Math.cos(a)*R,m.userData.h/2-2,pig.pos.z+Math.sin(a)*R);
       }
     });
-    // speed-reactive FOV kick in 3D
-    const tf=(is3D&&playing)?Math.min(76,62+(speed3-SPEED_MIN)*.55):62;
-    cam.fov+=(tf-cam.fov)*Math.min(1,dt*4); cam.updateProjectionMatrix();
+    if(!xrOn){
+      // speed-reactive FOV kick in 3D (never in VR — headset owns projection)
+      const tf=(is3D&&playing)?Math.min(76,62+(speed3-SPEED_MIN)*.55):62;
+      cam.fov+=(tf-cam.fov)*Math.min(1,dt*4); cam.updateProjectionMatrix();
+    } else {
+      vrHud.mesh.visible=playing&&!dead;
+      if(vrHud.mesh.visible) drawVrHud();
+      // comfort tunnel: fade in with turn rate + strong vertical motion, cap .6
+      const vt=(playing&&!dead)?Math.min(.6,Math.abs(turnSm)*.55+Math.max(0,Math.abs(pig.vy)-7)*.02):0;
+      vrVig.material.opacity+=(vt-vrVig.material.opacity)*Math.min(1,dt*5);
+      vrVig.visible=vrVig.material.opacity>.015;
+    }
     // sun + shadow frustum track the pig
     sun.position.set(pig.pos.x+40,60,pig.pos.z+25);
     sun.target.position.set(pig.pos.x,0,pig.pos.z);
@@ -1209,7 +1360,7 @@ applyPalette();
   const lb=await store.get('neon-oink-lb'); if(lb)renderLB(lb);
   fpCam=!!(await store.get('neon-oink-fp')); updateCamBtn();
 })();
-requestAnimationFrame(loop);
+renderer.setAnimationLoop(loop);
 if('serviceWorker' in navigator){
   addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
