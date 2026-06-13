@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>NEON OINK</title>
+<title>When Pigs Can Fly!</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐷</text></svg>">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="NEON OINK">
+<meta name="apple-mobile-web-app-title" content="When Pigs Can Fly!">
 <meta name="theme-color" content="#07070f">
 <style>
   html,body{margin:0;padding:0;overflow:hidden;background:#07070f;font-family:'Segoe UI',system-ui,sans-serif;height:100%;touch-action:none;-webkit-user-select:none;user-select:none;}
@@ -104,7 +104,7 @@
 <div id="joyHint">◀ steer here · tap right side to flap</div>
 <div id="rotateOverlay"><div class="icon">📱</div><p>ROTATE TO LANDSCAPE</p></div>
 <div id="overlay">
-  <h1>NEON OINK</h1>
+  <h1>When Pigs Can Fly!</h1>
   <p><b style="color:#39d2ff">2D</b> flat rhythm flyer · <b style="color:#ff2fb9">3D</b> open neon world — flip anytime.</p>
   <p class="pcOnly"><span class="key">L-CLICK</span>/<span class="key">SPACE</span> flap · <b>hold to glide</b> · <span class="key">R-CLICK</span>/<span class="key">TAB</span> flip · <span class="key">A</span><span class="key">D</span> turn · <span class="key">W</span><span class="key">S</span> speed</p>
   <p class="mobileOnly" style="display:none;"><b>TAP</b> to flap · <b>HOLD</b> to glide · <b>FLIP button</b> to swap dimensions · in 3D, <b>left thumb</b> = joystick steer, <b>right thumb</b> = flap</p>
@@ -907,7 +907,7 @@ async function die(){
   joyId=null; joyBase.style.display='none'; joyUI();
   document.getElementById('finalScore').textContent=`Score ${score} · LVL ${level} · ⭕${ringsHit} · Best chain ${bestChain}`;
   document.getElementById('runCode').textContent='YOUR RUN CODE: '+seedToCode(runSeed)+' — share it!';
-  document.querySelector('#overlay h1').textContent='NEON OINK';
+  document.querySelector('#overlay h1').textContent='When Pigs Can Fly!';
   document.getElementById('startBtn').textContent='FLY AGAIN';
   overlay.style.display='flex';
   if(renderer.xr.isPresenting) showVrMsg('OINK DOWN','score '+score+' — pull trigger to fly again');
@@ -1245,7 +1245,7 @@ renderer.xr.addEventListener('sessionstart',()=>{
   forceVR3D();
   rigY=null; rigYaw=pig.yaw;
   if(dead) showVrMsg('OINK DOWN','score '+score+' — pull trigger to fly again');
-  else if(!playing) showVrMsg('NEON OINK','pull trigger to fly · grip to flip 2D/3D');
+  else if(!playing) showVrMsg('When Pigs Can Fly!','pull trigger to fly · grip to flip 2D/3D');
 });
 renderer.xr.addEventListener('sessionend',()=>{
   vrHeld.clear(); vrTurn=0; vrSpeedY=0;
@@ -1503,7 +1503,7 @@ function startCombat(){
 function exitCombat(){
   combat=false; playing=false; dead=false; combatSetVisible(false);
   document.body.classList.remove('combat','show-ctl');
-  document.querySelector('#overlay h1').textContent='NEON OINK';
+  document.querySelector('#overlay h1').textContent='When Pigs Can Fly!';
   document.getElementById('finalScore').textContent='🔫 PIG BRAWL — '+points+' pts · '+kos+' KO'+(kos===1?'':'s');
   document.getElementById('runCode').textContent='';
   document.getElementById('startBtn').textContent='FLY';

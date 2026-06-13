@@ -1,7 +1,7 @@
 {
-  "name": "NEON OINK",
-  "short_name": "NEON OINK",
-  "description": "Rhythm dimension flyer — flap on the beat, flip between 2D and 3D.",
+  "name": "When Pigs Can Fly!",
+  "short_name": "Pigs Can Fly",
+  "description": "Rhythm dimension flyer & pig brawl — flap on the beat, flip 2D/3D, laser eyes and poop bombs.",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "landscape",
