@@ -42,6 +42,13 @@
   #codeInput{background:#11142a;border:1px solid #39d2ff;border-radius:8px;color:#fff;padding:8px 12px;font-size:14px;width:130px;text-transform:uppercase;letter-spacing:2px;text-align:center;}
   #codeBtn{background:#1d2240;border:1px solid #4a5388;color:#39d2ff;border-radius:8px;padding:8px 13px;font-weight:800;cursor:pointer;font-size:12px;}
   #camBtn{margin-top:10px;background:#1d2240;border:1px solid #4a5388;color:#ffd700;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer;font-size:12px;letter-spacing:1px;}
+  #combatBtn{margin-top:10px;background:linear-gradient(135deg,#ff5a5a,#ffb000);border:none;color:#fff;font-size:15px;font-weight:900;padding:11px 30px;border-radius:12px;cursor:pointer;letter-spacing:1px;box-shadow:0 0 22px rgba(255,90,90,.45);}
+  #combatBtn:active{transform:scale(.96);}
+  .combatCtl{position:fixed;bottom:max(20px,env(safe-area-inset-bottom));z-index:6;display:none;width:74px;height:74px;border-radius:50%;border:2px solid rgba(255,255,255,.4);font-size:30px;cursor:pointer;user-select:none;}
+  #laserBtn{right:max(104px,calc(env(safe-area-inset-right) + 104px));background:rgba(60,180,255,.85);}
+  #poopBtn{right:max(20px,env(safe-area-inset-right));background:rgba(150,110,60,.9);}
+  #hurt{position:fixed;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center,transparent 45%,rgba(255,0,0,.5) 100%);opacity:0;transition:opacity .1s;}
+  body.combat.touch.show-ctl .combatCtl{display:block;}
   #lb{margin-top:10px;color:#cfd6ff;font-size:12px;min-width:230px;}
   #lb .row{display:flex;justify-content:space-between;padding:2px 6px;}
   #lb .me{color:#9ef01a;font-weight:800;}
@@ -107,7 +114,11 @@
   <button id="camBtn">📷 3D VIEW: THIRD PERSON</button>
   <div id="lb"></div>
   <button id="startBtn">FLY</button>
+  <button id="combatBtn">🔫 PIG BRAWL · sandbox</button>
 </div>
+<button id="laserBtn" class="combatCtl">🔫</button>
+<button id="poopBtn" class="combatCtl">💩</button>
+<div id="hurt"></div>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
 </script>
@@ -431,10 +442,10 @@ function applyPalette(){
   sun.intensity=level>=8?.8:level>=6?1.4:2.2;
   sun.color.setHex(level>=7?0x9fb4ff:0xfff4dd);
 }
-function buildPig(){
+function buildPig(bodyCol=0xff9ec0,darkCol=0xe87aa4){
   const g=new THREE.Group();
-  const pink=new THREE.MeshStandardMaterial({color:0xff9ec0,emissive:0x000000,roughness:.6});
-  const dark=new THREE.MeshStandardMaterial({color:0xe87aa4,roughness:.6});
+  const pink=new THREE.MeshStandardMaterial({color:bodyCol,emissive:0x000000,roughness:.6});
+  const dark=new THREE.MeshStandardMaterial({color:darkCol,roughness:.6});
   const body=new THREE.Mesh(new THREE.SphereGeometry(.85,16,12),pink); body.scale.set(1.15,1,1); g.add(body);
   const head=new THREE.Mesh(new THREE.SphereGeometry(.55,14,10),pink); head.position.set(.95,.25,0); g.add(head);
   const snout=new THREE.Mesh(new THREE.CylinderGeometry(.22,.26,.25,12),dark);
@@ -710,6 +721,7 @@ addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space'){e.preventDefault(); if(!e.repeat){playing?flap():start();}}
   if(e.code==='Tab'){e.preventDefault(); toggleDim();}
+  if(e.code==='Escape'&&combat){exitCombat();}
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- input: mouse (desktop) ----------
@@ -786,6 +798,7 @@ function flap(){
   if(tMs-lastFlap<130) return;
   lastFlap=tMs;
   pig.vy=FLAP_V;
+  if(combat) return; // brawl flaps are pure lift — no rhythm scoring/HUD
   if(checkBeat()){
     beatChain++; bestChain=Math.max(bestChain,beatChain);
     multiplier=beatChain>=8?4:beatChain>=5?3:beatChain>=3?2:1;
@@ -866,6 +879,7 @@ function start(){
     try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
   }
   overlay.style.display='none';
+  if(combat){combat=false; combatSetVisible(false); document.body.classList.remove('combat','show-ctl');}
   playing=true; dead=false; score=0; ringsHit=0; distAcc=0; totalDist=0; level=1;
   beatChain=0; bestChain=0; multiplier=1;
   turnSm=0; fpY=null; vySm=0; mouseHeld=false; flapTouches.clear();
@@ -1061,6 +1075,7 @@ function draw2D(fwd,side,now){
       ctx.beginPath(); ctx.arc(x,y,r*pulse,0,7); ctx.stroke();
     }
   }
+  if(combat) drawCombat2D(worldToX,worldToY,fwd,side,now);
   const py=worldToY(pig.pos.y);
   const tilt=Math.max(-.5,Math.min(.45,-pig.vy*.04));
   ctx.save();
@@ -1191,14 +1206,17 @@ const vrScreen=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
   new THREE.MeshBasicMaterial({map:vrScreenTex,toneMapped:false,transparent:true,depthTest:false,depthWrite:false,fog:false}));
 vrScreen.renderOrder=997; vrScreen.position.set(0,0,-3.4); vrScreen.visible=false; vrScreen.frustumCulled=false;
 rig.add(vrScreen);
-// controllers: trigger = flap / glide-hold / start
+// controllers — normal: either trigger = flap, grip = flip.
+// combat: LEFT trigger = flap, RIGHT trigger = laser, RIGHT face button (A/X) = poop, grip = flip.
 for(const i of[0,1]){
   const ctl=renderer.xr.getController(i);
+  ctl.addEventListener('connected',e=>{ctl.userData.hand=e.data&&e.data.handedness;});
   ctl.addEventListener('selectstart',()=>{
+    if(combat&&ctl.userData.hand==='right'){ vrLaserHeld=true; return; } // right trigger = laser
     vrHeld.add(i);
     if(playing&&!dead) flap(); else start();
   });
-  ctl.addEventListener('selectend',()=>vrHeld.delete(i));
+  ctl.addEventListener('selectend',()=>{vrHeld.delete(i); if(ctl.userData.hand==='right') vrLaserHeld=false;});
   ctl.addEventListener('squeezestart',()=>{if(renderer.xr.isPresenting) toggleDim();}); // grip = flip 2D/3D
   rig.add(ctl);
 }
@@ -1206,13 +1224,16 @@ function pollVrInput(){
   vrTurn=0; vrSpeedY=0;
   const s=renderer.xr.getSession(); if(!s) return;
   for(const src of s.inputSources){
-    const gp=src.gamepad;
-    if(!gp||src.handedness!=='left') continue;
-    const ax=gp.axes;
-    const x=ax.length>=4?ax[2]:(ax[0]||0);
-    const y=ax.length>=4?ax[3]:(ax[1]||0);
-    if(Math.abs(x)>.12) vrTurn=-x;   // stick right → turn right (same sign convention as joyVec)
-    if(Math.abs(y)>.12) vrSpeedY=y;  // stick forward (negative) → faster, like W
+    const gp=src.gamepad; if(!gp) continue;
+    if(src.handedness==='left'){
+      const ax=gp.axes;
+      const x=ax.length>=4?ax[2]:(ax[0]||0);
+      const y=ax.length>=4?ax[3]:(ax[1]||0);
+      if(Math.abs(x)>.12) vrTurn=-x;   // stick right → turn right (same sign convention as joyVec)
+      if(Math.abs(y)>.12) vrSpeedY=y;  // stick forward (negative) → faster, like W
+    } else if(src.handedness==='right'&&combat){
+      if(gp.buttons[4]&&gp.buttons[4].pressed) poopTap=true;  // A/X button = poop bomb
+    }
   }
 }
 renderer.xr.addEventListener('sessionstart',()=>{
@@ -1241,6 +1262,200 @@ if(navigator.xr&&navigator.xr.isSessionSupported){
     document.body.appendChild(btn);
   }).catch(()=>{});
 }
+// ============================================================
+// PIG BRAWL — combat sandbox (single-player vs dumb AI pigs)
+// One 3D truth: bots always live in world space; 2D is a lens.
+// ============================================================
+let combat=false,kos=0,playerHP=100,hurtT=0,invulnT=0,playerFireCd=0,poopCd=0;
+let laserTap=false,poopTap=false,vrLaserHeld=false;
+const COMBAT_HP=100,LASER_DMG=22,BOT_DMG=9,POOP_DMG=60,LASER_RANGE=70,LASER_CD=.26,POOP_CD=.85,RESPAWN_T=3;
+const ENEMY_TINTS=[0x8fd0ff,0xbcff8f,0xffd27a,0xc69bff];
+const darken=h=>new THREE.Color(h).multiplyScalar(.74).getHex();
+const BOTN=3,bots=[];
+for(let i=0;i<BOTN;i++){
+  const tint=ENEMY_TINTS[i%ENEMY_TINTS.length];
+  const mesh=buildPig(tint,darken(tint));
+  mesh.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+  mesh.visible=false; scene.add(mesh);
+  bots.push({pos:new THREE.Vector3(),vy:0,yaw:0,hp:COMBAT_HP,alive:false,respawn:0,fireCd:1,mesh,bob:Math.random()*6.28,col2d:'#'+tint.toString(16).padStart(6,'0')});
+}
+const beams=[],poops=[],puffs=[];
+const _eye=new THREE.Vector3(),_aim=new THREE.Vector3(),_v=new THREE.Vector3();
+const UP=new THREE.Vector3(0,1,0);
+function fwdOf(yaw){return new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));}
+function pigEye(p,yaw,out){const c=Math.cos(yaw),s=-Math.sin(yaw);return out.set(p.x+c*1.5,p.y+.5,p.z+s*1.5);}
+function zap(rise){if(!AC)return;const t=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.setValueAtTime(rise?320:900,t);o.frequency.exponentialRampToValueAtTime(rise?900:120,t+.12);g.gain.setValueAtTime(.18,t);g.gain.exponentialRampToValueAtTime(.001,t+.14);o.connect(g);g.connect(masterGain);o.start(t);o.stop(t+.16);}
+function splatSfx(){if(!AC)return;const t=AC.currentTime,s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=600;const g=AC.createGain();g.gain.setValueAtTime(.35,t);g.gain.exponentialRampToValueAtTime(.001,t+.3);s.connect(f);f.connect(g);g.connect(masterGain);s.start(t);s.stop(t+.32);}
+function spawnBeam(a,b,col){
+  const len=Math.max(.2,a.distanceTo(b));
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,len,6),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95,depthWrite:false,toneMapped:false,fog:false}));
+  m.position.copy(a).add(b).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(UP,_v.copy(b).sub(a).normalize());
+  scene.add(m); beams.push({mesh:m,life:.12,max:.12,a:a.clone(),b:b.clone(),col});
+}
+function spawnPuff(p,col){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.6,8,6),
+    new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.9,depthWrite:false,toneMapped:false,fog:false}));
+  m.position.copy(p); scene.add(m); puffs.push({mesh:m,life:.5,max:.5});
+}
+function bestTargetInCone(eye,fwd,horizCone){
+  let best=null,bestD=1e9;const cc=Math.cos(horizCone);
+  for(const b of bots){
+    if(!b.alive)continue;
+    const dx=b.pos.x-eye.x,dz=b.pos.z-eye.z,dy=b.pos.y-eye.y;
+    const hd=Math.hypot(dx,dz),d=Math.hypot(hd,dy);
+    if(d>LASER_RANGE||hd<.01)continue;
+    if((dx*fwd.x+dz*fwd.z)/hd<cc)continue;       // outside forward corridor cone
+    if(d<bestD){bestD=d;best=b;}
+  }
+  return best;
+}
+function firePlayerLaser(){
+  pigEye(pig.pos,pig.yaw,_eye);
+  const fwd=fwdOf(pig.yaw);
+  const tgt=bestTargetInCone(_eye,fwd,is3D?.34:.16); // tighter cone in 2D enforces the plane
+  let end;
+  if(tgt){ end=tgt.pos.clone(); tgt.hp-=LASER_DMG; if(tgt.hp<=0) koBot(tgt); }
+  else end=_eye.clone().addScaledVector(fwd,LASER_RANGE);
+  spawnBeam(_eye,end,0xbff4ff); zap(false);
+}
+function fireBotLaser(b){
+  const eye=b.pos.clone().addScaledVector(fwdOf(b.yaw),1.2); eye.y+=.4;
+  const aim=_aim.copy(pig.pos).sub(eye).normalize();
+  const end=pig.pos.clone();
+  spawnBeam(eye,end,0xff5a5a); zap(false);
+  if(invulnT<=0) damagePlayer(BOT_DMG);
+}
+function damagePlayer(d){
+  playerHP-=d; hurtT=.28;
+  if(playerHP<=0){ playerHP=COMBAT_HP; invulnT=2.2; pig.stun=.7; pig.vy=8; spawnPuff(pig.pos,0xff9ec0); }
+  updateCombatHUD();
+}
+function koBot(b){ b.alive=false; b.mesh.visible=false; b.respawn=RESPAWN_T; kos++; spawnPuff(b.pos,0xfff0a0); splatSfx(); updateCombatHUD(); }
+function respawnBot(b){
+  const a=Math.random()*6.28,R=26+Math.random()*14;
+  b.pos.set(pig.pos.x+Math.cos(a)*R, Math.max(FLOOR+3,Math.min(CEIL-2,pig.pos.y+(Math.random()-.5)*10)), pig.pos.z+Math.sin(a)*R);
+  b.vy=0; b.yaw=a+Math.PI; b.hp=COMBAT_HP; b.alive=true; b.fireCd=.8+Math.random(); b.mesh.visible=true;
+}
+function spawnPoop(){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.32,8,6),new THREE.MeshStandardMaterial({color:0x6b4423,roughness:1}));
+  m.position.copy(pig.pos); m.position.y-=.6; m.castShadow=true; scene.add(m);
+  poops.push({mesh:m,pos:m.position,vy:-3,life:5}); zap(false);
+}
+function splatPoop(p){
+  spawnPuff(p,0x6b4423); splatSfx();
+  for(const b of bots){ if(b.alive&&b.pos.distanceTo(p)<5){ b.hp-=POOP_DMG*(1-b.pos.distanceTo(p)/6); if(b.hp<=0) koBot(b); } }
+}
+function angTo(cur,want){let d=(want-cur)%(Math.PI*2); if(d>Math.PI)d-=Math.PI*2; if(d<-Math.PI)d+=Math.PI*2; return d;}
+function updateCombat(dt,now,fwd,side){
+  hurtT=Math.max(0,hurtT-dt); invulnT=Math.max(0,invulnT-dt);
+  document.getElementById('hurt').style.opacity=hurtT>0?Math.min(.8,hurtT*2.5):0;
+  // player weapons (frame-based, cooldown-gated)
+  playerFireCd-=dt; poopCd-=dt;
+  if((keys['KeyF']||laserTap||vrLaserHeld)&&playerFireCd<=0){ firePlayerLaser(); playerFireCd=LASER_CD; }
+  if((keys['KeyC']||poopTap)&&poopCd<=0){ spawnPoop(); poopCd=POOP_CD; }
+  laserTap=poopTap=false;
+  // bots
+  for(const b of bots){
+    if(!b.alive){ b.respawn-=dt; if(b.respawn<=0) respawnBot(b); continue; }
+    const toP=_v.copy(pig.pos).sub(b.pos); const dist=toP.length();
+    b.yaw+=angTo(b.yaw,Math.atan2(-toP.z,toP.x))*Math.min(1,dt*1.6);
+    const bf=fwdOf(b.yaw);
+    const sp=dist>22?11:dist<12?-7:2.5;
+    b.pos.addScaledVector(bf,sp*dt);
+    b.pos.x+=Math.sin(now*.0013+b.bob)*dt*5;            // lazy strafe (dodges off your 2D plane)
+    b.pos.z+=Math.cos(now*.0017+b.bob)*dt*5;
+    const ty=pig.pos.y+Math.sin(now*.001+b.bob)*3;
+    b.pos.y+=(ty-b.pos.y)*Math.min(1,dt*1.3);
+    b.pos.y=Math.max(FLOOR+1,Math.min(CEIL,b.pos.y));
+    b.fireCd-=dt;
+    if(b.fireCd<=0&&dist<52){ if(Math.random()<.6) fireBotLaser(b); b.fireCd=1.1+Math.random()*1.4; }
+    b.mesh.position.copy(b.pos);
+    b.mesh.rotation.set(0,b.yaw,0); b.mesh.rotateZ(Math.sin(now*.02+b.bob)*.1);
+    const wt=Math.sin(now*.018+b.bob)*.7;
+    b.mesh.userData.wings[0].rotation.x=wt; b.mesh.userData.wings[1].rotation.x=-wt;
+  }
+  // poop bombs
+  for(let i=poops.length-1;i>=0;i--){
+    const p=poops[i]; p.vy+=GRAV*dt; p.pos.y+=p.vy*dt; p.life-=dt;
+    let done=false;
+    for(const b of bots){ if(b.alive&&p.pos.distanceTo(b.pos)<2.2){ done=true; break; } }
+    if(p.pos.y<FLOOR||done||p.life<=0){ if(p.pos.y<FLOOR){p.pos.y=FLOOR;} splatPoop(p.pos); scene.remove(p.mesh); p.mesh.geometry.dispose(); poops.splice(i,1); }
+  }
+  // VFX lifetimes
+  for(let i=beams.length-1;i>=0;i--){ const x=beams[i]; x.life-=dt; if(x.life<=0){scene.remove(x.mesh);x.mesh.geometry.dispose();beams.splice(i,1);} else x.mesh.material.opacity=.95*(x.life/x.max); }
+  for(let i=puffs.length-1;i>=0;i--){ const x=puffs[i]; x.life-=dt; if(x.life<=0){scene.remove(x.mesh);x.mesh.geometry.dispose();puffs.splice(i,1);} else { const f=1-x.life/x.max; x.mesh.scale.setScalar(1+f*3); x.mesh.material.opacity=.9*(1-f); } }
+  // player invuln blink
+  pigMesh.visible=!(fpCam&&is3D)&&!(invulnT>0&&Math.floor(now*.02)%2===0);
+}
+// 2D lens: draw bots / beams / poops that fall in the flat corridor (off-plane ones vanish, like crows)
+function drawCombat2D(worldToX,worldToY,fwd,side,now){
+  for(const b of bots){
+    if(!b.alive)continue;
+    const relX=b.pos.x-pig.pos.x,relZ=b.pos.z-pig.pos.z;
+    const along=relX*fwd.x+relZ*fwd.z, lat=relX*side.x+relZ*side.z;
+    if(along<-6||Math.abs(lat)>CORRIDOR+1)continue;
+    const x=worldToX(along),y=worldToY(b.pos.y);
+    ctx.fillStyle=b.col2d;
+    ctx.beginPath(); ctx.ellipse(x,y,18,13,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+15,y-5,9,0,7); ctx.fill();      // head
+    ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(x+16,y-7,2,0,7); ctx.fill();
+    ctx.fillStyle=b.col2d; ctx.beginPath(); ctx.ellipse(x+22,y-3,4,3,0,0,7); ctx.fill(); // snout
+    // tiny hp pip
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(x-16,y-22,32,4);
+    ctx.fillStyle='#7fff6a'; ctx.fillRect(x-16,y-22,32*Math.max(0,b.hp/COMBAT_HP),4);
+  }
+  for(const bm of beams){
+    const aA=(bm.a.x-pig.pos.x)*fwd.x+(bm.a.z-pig.pos.z)*fwd.z, aL=(bm.a.x-pig.pos.x)*side.x+(bm.a.z-pig.pos.z)*side.z;
+    const bA=(bm.b.x-pig.pos.x)*fwd.x+(bm.b.z-pig.pos.z)*fwd.z, bL=(bm.b.x-pig.pos.x)*side.x+(bm.b.z-pig.pos.z)*side.z;
+    if(Math.abs(aL)>CORRIDOR+3&&Math.abs(bL)>CORRIDOR+3)continue;
+    ctx.strokeStyle='#'+bm.col.toString(16).padStart(6,'0'); ctx.lineWidth=4; ctx.globalAlpha=Math.max(0,bm.life/bm.max);
+    ctx.beginPath(); ctx.moveTo(worldToX(aA),worldToY(bm.a.y)); ctx.lineTo(worldToX(bA),worldToY(bm.b.y)); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+  for(const p of poops){
+    const along=(p.pos.x-pig.pos.x)*fwd.x+(p.pos.z-pig.pos.z)*fwd.z, lat=(p.pos.x-pig.pos.x)*side.x+(p.pos.z-pig.pos.z)*side.z;
+    if(along<-6||Math.abs(lat)>CORRIDOR+2)continue;
+    ctx.fillStyle='#6b4423'; ctx.beginPath(); ctx.arc(worldToX(along),worldToY(p.pos.y),6,0,7); ctx.fill();
+  }
+}
+function combatSetVisible(on){
+  bots.forEach(b=>{b.mesh.visible=on&&b.alive;});
+  if(!on){
+    for(const x of beams){scene.remove(x.mesh);x.mesh.geometry.dispose();} beams.length=0;
+    for(const x of puffs){scene.remove(x.mesh);x.mesh.geometry.dispose();} puffs.length=0;
+    for(const p of poops){scene.remove(p.mesh);p.mesh.geometry.dispose();} poops.length=0;
+    document.getElementById('hurt').style.opacity=0;
+  }
+}
+function updateCombatHUD(){
+  document.getElementById('score').textContent='💀 '+kos;
+  document.getElementById('rings').textContent='❤ '+Math.max(0,Math.round(playerHP))+'/'+COMBAT_HP;
+  document.getElementById('lvl').textContent='PIG BRAWL · F laser · C poop · Esc quit';
+  document.getElementById('mult').textContent=''; document.getElementById('chain').textContent='';
+}
+function startCombat(){
+  start();                       // reuse flight init (sets 2D); then convert to a 3D brawl
+  combat=true; kos=0; playerHP=COMBAT_HP; hurtT=0; invulnT=1.5; playerFireCd=0; poopCd=0;
+  document.body.classList.add('combat'); if(isTouch) document.body.classList.add('show-ctl');
+  // force 3D instantly (no morph) — brawling reads best in the round world
+  is3D=true; morphActive=false; morphT=1;
+  const d=document.getElementById('dimTxt'); d.textContent='3D'; d.className='dim dim3'; flatCanvas.style.opacity=0;
+  bots.forEach(respawnBot); combatSetVisible(true); updateCombatHUD(); joyUI();
+}
+function exitCombat(){
+  combat=false; playing=false; dead=false; combatSetVisible(false);
+  document.body.classList.remove('combat','show-ctl');
+  document.querySelector('#overlay h1').textContent='NEON OINK';
+  document.getElementById('finalScore').textContent='🔫 PIG BRAWL — '+kos+' KO'+(kos===1?'':'s');
+  document.getElementById('runCode').textContent='';
+  document.getElementById('startBtn').textContent='FLY';
+  overlay.style.display='flex';
+}
+document.getElementById('combatBtn').addEventListener('click',startCombat);
+document.getElementById('laserBtn').addEventListener('pointerdown',e=>{e.preventDefault();laserTap=true;});
+document.getElementById('poopBtn').addEventListener('pointerdown',e=>{e.preventDefault();poopTap=true;});
 let last=performance.now();
 function loop(now){
   const dt=Math.min(.05,(now-last)/1000); last=now;
@@ -1277,12 +1492,14 @@ function loop(now){
     if(gliding()) pig.vy=Math.max(pig.vy,-3.2);
     pig.pos.y+=pig.vy*dt;
     if(pig.pos.y>CEIL){pig.pos.y=CEIL; pig.vy=Math.min(0,pig.vy);}
+    if(combat&&pig.pos.y<FLOOR+1.4){pig.pos.y=FLOOR+1.4; pig.vy=Math.max(pig.vy,0);} // brawl: soft floor, no death pit
     totalDist+=spd*dt; distAcc+=spd*dt;
-    if(distAcc>=10){score+=Math.floor(distAcc/10)*multiplier; distAcc%=10; updateHUD(); checkLevel();}
+    if(!combat&&distAcc>=10){score+=Math.floor(distAcc/10)*multiplier; distAcc%=10; updateHUD(); checkLevel();}
     updateChunks(); updateDynamics(now,dt);
-    if(!is3D&&totalDist>=nextInjAt){injectObstacle(fwd,side); nextInjAt=totalDist+injGap();}
+    if(!combat&&!is3D&&totalDist>=nextInjAt){injectObstacle(fwd,side); nextInjAt=totalDist+injGap();}
     pruneInjected(fwd);
-    if(checkCollisions(fwd,side)) die();
+    if(combat) updateCombat(dt,now,fwd,side);
+    else if(checkCollisions(fwd,side)) die();
   } else {
     updateDynamics(now,dt);
   }

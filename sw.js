@@ -1,4 +1,4 @@
-const CACHE='neon-oink-v6';
+const CACHE='neon-oink-v7';
 const ASSETS=['/','/index.html','/manifest.json','https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js','https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/environments/RoomEnvironment.js','https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/webxr/VRButton.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

@@ -2,6 +2,22 @@
 
 Ideas and future work, in rough priority order.
 
+## PIG BRAWL — combat (IN PROGRESS, on `feature/combat`)
+Single-player combat sandbox built as a v1. Status:
+- [x] Menu button "PIG BRAWL", own HUD (KOs + HP), Esc to quit
+- [x] 3 dumb AI enemy pigs (tinted) — approach/retreat/strafe/bob, shoot back
+- [x] Laser eyes (hitscan + forward-cone aim assist), keyboard F
+- [x] Poop bombs (gravity drop + AoE splat), keyboard C
+- [x] Health, hit reactions, KO + respawn, soft floor (no death pit in brawl)
+- [x] The hook: flip to 2D to line up shots on-plane; off-plane enemies vanish like crows
+- [x] VR controls wired (LEFT trigger flap, RIGHT trigger laser, RIGHT A/X poop, grip flip) — UNTESTED on headset
+- [x] Mobile on-screen 🔫 / 💩 buttons
+- [ ] DETERMINISM (prereq for any real multiplayer): 2D injected-obstacle spawner uses Math.random, not the seed — must be seeded + fixed-timestep before fair racing/ghosts/netcode
+- [ ] Realtime netcode (PartyKit/Durable Objects) for 2–4 players, scale to 6
+- [ ] Game modes (FFA, last-pig-flying, team poop war), power-ups (burrito/bacon/energy drink/tinfoil), beat-powered shots
+- [ ] Polish: invuln-blink on player is overridden by the render block (cosmetic), tune AI difficulty, VR combat playtest
+- [ ] Decide: merge to production or keep gated on branch until netcode-ready
+
 ## VR support (WebXR) — committed, not started
 Build VR-ready as we go; when we start, go straight to the **medium tier**:
 
