@@ -53,6 +53,13 @@
   #hpfill{height:100%;width:100%;background:#7fff6a;}
   body.combat #hpbar{display:block;}
   body.combat #mult{color:#ffd24a;}
+  #xhair{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;z-index:5;display:none;pointer-events:none;border:2px solid rgba(255,255,255,.75);border-radius:50%;transition:transform .08s,border-color .08s,background .08s;}
+  #xhair::after{content:'';position:absolute;left:50%;top:50%;width:3px;height:3px;margin:-1.5px 0 0 -1.5px;background:#fff;border-radius:50%;}
+  #xhair.lock{border-color:#ff4040;background:rgba(255,60,60,.2);transform:scale(1.4);}
+  .eArrow{position:fixed;z-index:5;display:none;pointer-events:none;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-bottom:18px solid #fff;filter:drop-shadow(0 0 3px rgba(0,0,0,.5));}
+  #killPop{position:fixed;left:0;right:0;top:30%;text-align:center;z-index:6;pointer-events:none;font-weight:900;font-size:30px;color:#9ef01a;opacity:0;text-shadow:0 0 14px rgba(0,0,0,.6);}
+  #killPop.show{animation:killA .8s ease forwards;}
+  @keyframes killA{0%{opacity:0;transform:scale(.5) translateY(10px);}25%{opacity:1;transform:scale(1.1);}100%{opacity:0;transform:translateY(-32px);}}
   #lb{margin-top:10px;color:#cfd6ff;font-size:12px;min-width:230px;}
   #lb .row{display:flex;justify-content:space-between;padding:2px 6px;}
   #lb .me{color:#9ef01a;font-weight:800;}
@@ -124,6 +131,11 @@
 <button id="laserBtn" class="combatCtl">🔫</button>
 <button id="poopBtn" class="combatCtl">💩</button>
 <div id="hurt"></div>
+<div id="xhair"></div>
+<div id="killPop"></div>
+<div class="eArrow" id="arrow0"></div>
+<div class="eArrow" id="arrow1"></div>
+<div class="eArrow" id="arrow2"></div>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
 </script>
@@ -1273,9 +1285,12 @@ if(navigator.xr&&navigator.xr.isSessionSupported){
 // ============================================================
 let combat=false,kos=0,points=0,deaths=0,playerHP=100,hurtT=0,invulnT=0,playerFireCd=0,poopCd=0;
 let laserTap=false,poopTap=false,vrLaserHeld=false,matchT=0,lastSec=-1;
-const COMBAT_HP=100,LASER_DMG=22,BOT_DMG=9,POOP_DMG=60,LASER_RANGE=70,LASER_CD=.26,POOP_CD=.85,RESPAWN_T=3;
+const COMBAT_HP=100,LASER_DMG=22,BOT_DMG=12,POOP_DMG=60,LASER_RANGE=70,LASER_CD=.26,POOP_CD=.85,RESPAWN_T=3;
 const MATCH_DUR=90,PTS_LASER=10,PTS_POOP=25,PTS_KO=50;
 const hpfill=document.getElementById('hpfill');
+const xhair=document.getElementById('xhair'),killPop=document.getElementById('killPop');
+const eArrows=[document.getElementById('arrow0'),document.getElementById('arrow1'),document.getElementById('arrow2')];
+function killFloat(txt){ killPop.textContent=txt; killPop.classList.remove('show'); void killPop.offsetWidth; killPop.classList.add('show'); }
 const ENEMY_TINTS=[0x8fd0ff,0xbcff8f,0xffd27a,0xc69bff];
 const darken=h=>new THREE.Color(h).multiplyScalar(.74).getHex();
 const BOTN=3,bots=[];
@@ -1288,7 +1303,7 @@ for(let i=0;i<BOTN;i++){
   barbg.scale.set(1.7,.22,1); barbg.renderOrder=996; barbg.visible=false; scene.add(barbg);
   const bar=new THREE.Sprite(new THREE.SpriteMaterial({color:0x7fff6a,depthTest:false}));
   bar.scale.set(1.6,.16,1); bar.renderOrder=997; bar.visible=false; scene.add(bar);
-  bots.push({pos:new THREE.Vector3(),vy:0,yaw:0,hp:COMBAT_HP,alive:false,respawn:0,fireCd:1,mesh,bob:Math.random()*6.28,col2d:'#'+tint.toString(16).padStart(6,'0'),tintHex:tint,poopT:0,bar,barbg});
+  bots.push({pos:new THREE.Vector3(),vy:0,yaw:0,hp:COMBAT_HP,alive:false,respawn:0,fireCd:1,mesh,bob:Math.random()*6.28,col2d:'#'+tint.toString(16).padStart(6,'0'),tintHex:tint,poopT:0,hitT:0,bar,barbg});
 }
 const beams=[],poops=[],puffs=[],gibs=[];
 const _eye=new THREE.Vector3(),_aim=new THREE.Vector3(),_v=new THREE.Vector3();
@@ -1314,11 +1329,11 @@ function squeal(big){
 }
 function spawnBeam(a,b,col){
   const len=Math.max(.2,a.distanceTo(b));
-  const m=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,len,6),
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(.13,.13,len,6),
     new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.95,depthWrite:false,toneMapped:false,fog:false}));
   m.position.copy(a).add(b).multiplyScalar(.5);
   m.quaternion.setFromUnitVectors(UP,_v.copy(b).sub(a).normalize());
-  scene.add(m); beams.push({mesh:m,life:.12,max:.12,a:a.clone(),b:b.clone(),col});
+  scene.add(m); beams.push({mesh:m,life:.16,max:.16,a:a.clone(),b:b.clone(),col});
 }
 function spawnPuff(p,col){
   const m=new THREE.Mesh(new THREE.SphereGeometry(.6,8,6),
@@ -1342,23 +1357,26 @@ function firePlayerLaser(){
   const fwd=fwdOf(pig.yaw);
   const tgt=bestTargetInCone(_eye,fwd,is3D?.34:.16); // tighter cone in 2D enforces the plane
   let end;
-  if(tgt){ end=tgt.pos.clone(); tgt.hp-=LASER_DMG; points+=PTS_LASER; squeal(false); if(tgt.hp<=0) koBot(tgt); updateCombatHUD(); }
+  if(tgt){ end=tgt.pos.clone(); tgt.hp-=LASER_DMG; tgt.hitT=.12; tgt.pos.addScaledVector(fwd,1.6); points+=PTS_LASER; squeal(false); if(tgt.hp<=0) koBot(tgt); updateCombatHUD(); }
   else end=_eye.clone().addScaledVector(fwd,LASER_RANGE);
   spawnBeam(_eye,end,0xbff4ff); zap(false);
 }
 function fireBotLaser(b){
   const eye=b.pos.clone().addScaledVector(fwdOf(b.yaw),1.2); eye.y+=.4;
-  const aim=_aim.copy(pig.pos).sub(eye).normalize();
-  const end=pig.pos.clone();
-  spawnBeam(eye,end,0xff5a5a); zap(false);
-  if(invulnT<=0) damagePlayer(BOT_DMG);
+  const dist=b.pos.distanceTo(pig.pos);
+  const moving=Math.abs(turnSm)>.2||Math.abs(pig.vy)>4;     // reward dodging — moving pigs are hard to hit
+  const acc=Math.max(.12,.6-Math.min(.32,dist/200)-(moving?.22:0));
+  const hit=Math.random()<acc;
+  const aimPt=hit?pig.pos.clone():pig.pos.clone().add(new THREE.Vector3((Math.random()-.5)*7,(Math.random()-.5)*7,(Math.random()-.5)*7));
+  spawnBeam(eye,aimPt,0xff5a5a); zap(false);
+  if(hit&&invulnT<=0) damagePlayer(BOT_DMG);
 }
 function damagePlayer(d){
   playerHP-=d; hurtT=.32; squeal(false);
   if(playerHP<=0){ explodePig(pig.pos,0xff9ec0); hurtT=.6; playerHP=COMBAT_HP; invulnT=2.4; pig.stun=.7; pig.vy=8; deaths++; }
   updateCombatHUD();
 }
-function koBot(b){ b.alive=false; b.mesh.visible=false; b.bar.visible=false; b.barbg.visible=false; b.respawn=RESPAWN_T; kos++; points+=PTS_KO; explodePig(b.pos,b.tintHex); updateCombatHUD(); }
+function koBot(b){ b.alive=false; b.mesh.visible=false; b.bar.visible=false; b.barbg.visible=false; b.respawn=RESPAWN_T; kos++; points+=PTS_KO; explodePig(b.pos,b.tintHex); killFloat('KO! +'+PTS_KO); updateCombatHUD(); }
 function respawnBot(b){
   const a=Math.random()*6.28,R=26+Math.random()*14;
   b.pos.set(pig.pos.x+Math.cos(a)*R, Math.max(FLOOR+3,Math.min(CEIL-2,pig.pos.y+(Math.random()-.5)*10)), pig.pos.z+Math.sin(a)*R);
@@ -1383,7 +1401,7 @@ function explodePig(pos,tint){ spawnPuff(pos,0xffffff); const cols=[tint,0xff9ec
 function splatPoop(p){
   poopExplode(p);
   let hit=false;
-  for(const b of bots){ if(b.alive&&b.pos.distanceTo(p)<5.5){ b.poopT=1.8; b.hp-=POOP_DMG*(1-b.pos.distanceTo(p)/6.5); points+=PTS_POOP; hit=true; if(b.hp<=0) koBot(b); } }
+  for(const b of bots){ if(b.alive&&b.pos.distanceTo(p)<5.5){ b.poopT=1.8; b.hitT=.1; const pu=_v.copy(b.pos).sub(p); pu.y=0; pu.normalize(); b.pos.addScaledVector(pu,2); b.hp-=POOP_DMG*(1-b.pos.distanceTo(p)/6.5); points+=PTS_POOP; hit=true; if(b.hp<=0) koBot(b); } }
   if(hit){ squeal(false); updateCombatHUD(); }
 }
 function angTo(cur,want){let d=(want-cur)%(Math.PI*2); if(d>Math.PI)d-=Math.PI*2; if(d<-Math.PI)d+=Math.PI*2; return d;}
@@ -1419,8 +1437,8 @@ function updateCombat(dt,now,fwd,side){
     b.mesh.rotation.set(0,b.yaw,0); b.mesh.rotateZ(Math.sin(now*.02+b.bob)*.1);
     const wt=Math.sin(now*.018+b.bob)*.7;
     b.mesh.userData.wings[0].rotation.x=wt; b.mesh.userData.wings[1].rotation.x=-wt;
-    b.poopT=Math.max(0,b.poopT-dt);                         // poop-stained enemies turn brown
-    b.mesh.userData.bodyMat.color.set(b.poopT>0?0x6b4423:b.tintHex);
+    b.poopT=Math.max(0,b.poopT-dt); b.hitT=Math.max(0,b.hitT-dt);  // hit flash (white) overrides poop stain
+    b.mesh.userData.bodyMat.color.set(b.hitT>0?0xffffff:b.poopT>0?0x6b4423:b.tintHex);
     const hpf=Math.max(0,b.hp/COMBAT_HP);                   // floating health bar above each enemy
     b.barbg.position.set(b.pos.x,b.pos.y+2,b.pos.z); b.barbg.visible=true;
     b.bar.position.set(b.pos.x,b.pos.y+2,b.pos.z); b.bar.scale.x=1.6*hpf; b.bar.visible=true;
@@ -1440,6 +1458,23 @@ function updateCombat(dt,now,fwd,side){
   for(let i=gibs.length-1;i>=0;i--){ const g=gibs[i]; g.vel.y+=GRAV*dt; g.mesh.position.addScaledVector(g.vel,dt); g.mesh.rotation.x+=dt*6; g.life-=dt; if(g.life<=0||g.mesh.position.y<FLOOR){scene.remove(g.mesh);g.mesh.geometry.dispose();g.mesh.material.dispose();gibs.splice(i,1);} else g.mesh.material.opacity=Math.min(1,g.life*2.5); }
   // player invuln blink
   pigMesh.visible=!(fpCam&&is3D)&&!(invulnT>0&&Math.floor(now*.02)%2===0);
+  // crosshair lock-on (red when a shot would connect) + off-screen enemy arrows
+  if(is3D){ xhair.style.display='block'; pigEye(pig.pos,pig.yaw,_eye); xhair.classList.toggle('lock',!!bestTargetInCone(_eye,fwdOf(pig.yaw),.34)); }
+  else xhair.style.display='none';
+  const W=innerWidth,H=innerHeight,mx=W/2-46,my=H/2-46;
+  for(let i=0;i<bots.length;i++){
+    const b=bots[i],ar=eArrows[i];
+    if(!b.alive||!is3D){ ar.style.display='none'; continue; }
+    _v.copy(b.pos).project(cam);
+    let x=_v.x,y=_v.y; const behind=_v.z>1; if(behind){x=-x;y=-y;}
+    if(!behind&&x>-.92&&x<.92&&y>-.92&&y<.92){ ar.style.display='none'; continue; } // on-screen
+    const ang=Math.atan2(-y,x);
+    const t=Math.min(Math.abs(mx/(Math.cos(ang)||1e-3)),Math.abs(my/(Math.sin(ang)||1e-3)));
+    ar.style.display='block';
+    ar.style.left=(W/2+Math.cos(ang)*t)+'px'; ar.style.top=(H/2+Math.sin(ang)*t)+'px';
+    ar.style.transform='translate(-50%,-50%) rotate('+(ang+Math.PI/2)+'rad)';
+    ar.style.borderBottomColor=b.col2d;
+  }
 }
 // 2D lens: draw bots / beams / poops that fall in the flat corridor (off-plane ones vanish, like crows)
 function drawCombat2D(worldToX,worldToY,fwd,side,now){
@@ -1480,6 +1515,7 @@ function combatSetVisible(on){
     for(const p of poops){scene.remove(p.mesh);p.mesh.geometry.dispose();} poops.length=0;
     for(const g of gibs){scene.remove(g.mesh);g.mesh.geometry.dispose();g.mesh.material.dispose();} gibs.length=0;
     document.getElementById('hurt').style.opacity=0;
+    xhair.style.display='none'; killPop.classList.remove('show'); eArrows.forEach(a=>a.style.display='none');
   }
 }
 function updateCombatHUD(){
