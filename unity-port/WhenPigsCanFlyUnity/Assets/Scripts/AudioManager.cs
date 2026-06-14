@@ -50,7 +50,7 @@ namespace WhenPigsCanFly
             if (!Playing) return;
             float bpm = 90f + (Level - 1) * 8f;
             float interval = 60f / bpm;
-            float time = AudioSettings.dspTime;
+            double time = AudioSettings.dspTime;
 
             while (nextBeatTime < time + 0.12f)
             {

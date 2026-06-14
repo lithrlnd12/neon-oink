@@ -31,7 +31,7 @@ namespace WhenPigsCanFly
 
         public Vector3 Velocity { get; private set; }
         public float VerticalSpeed { get; private set; }
-        public float Yaw { get; private set; }
+        public float Yaw { get; set; }
         public float Bank { get; private set; }
         public float Speed3D { get; set; }
         public float StunTimer { get; set; }

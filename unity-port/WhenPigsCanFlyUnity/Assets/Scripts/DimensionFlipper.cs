@@ -24,7 +24,7 @@ namespace WhenPigsCanFly
         [SerializeField] private CanvasGroup flatCanvasGroup;
         [SerializeField] private RectTransform flatCanvasRect;
 
-        public bool Is3D { get; private set; }
+        public bool Is3D { get; set; }
         public bool IsMorphing { get; private set; }
         public float MorphT { get; private set; } = 1f;
         public float Cooldown { get; private set; }

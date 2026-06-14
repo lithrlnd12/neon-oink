@@ -29,6 +29,11 @@ namespace WhenPigsCanFly
 
         private float age;
 
+        private void Awake()
+        {
+            // Ensure Velocity is never a struct-copy default; callers set after Launch.
+        }
+
         /// <summary>
         /// Launches the bomb from origin with a small backward/downward arc.
         /// </summary>
@@ -45,7 +50,9 @@ namespace WhenPigsCanFly
             float dt = Time.deltaTime;
             age += dt;
 
-            Velocity.y += gravity * dt;
+            Vector3 vel = Velocity;
+            vel.y += gravity * dt;
+            Velocity = vel;
             transform.position += Velocity * dt;
             transform.Rotate(Spin * dt);
 

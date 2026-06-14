@@ -62,17 +62,15 @@ namespace WhenPigsCanFly
             if (best != null)
             {
                 end = best.position;
-                hitInfo.point = end;
-                hitInfo.collider = best.GetComponent<Collider>();
                 hit = true;
                 ApplyDamage(best);
             }
             else
             {
                 end = eye + forward * laserRange;
-                hit = Physics.Raycast(eye, forward, out hitInfo, laserRange, targetMask);
-                if (hit && hitInfo.collider != null)
-                    ApplyDamage(hitInfo.collider.transform);
+                hit = Physics.Raycast(eye, forward, out RaycastHit rayInfo, laserRange, targetMask);
+                if (hit && rayInfo.collider != null)
+                    ApplyDamage(rayInfo.collider.transform);
             }
 
             SpawnBeam(eye, end);
