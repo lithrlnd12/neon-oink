@@ -1,2 +1,15 @@
 .vercel
 .playwright-mcp/
+
+# Unity project generated files
+unity-port/WhenPigsCanFlyUnity/Library/
+unity-port/WhenPigsCanFlyUnity/Temp/
+unity-port/WhenPigsCanFlyUnity/Obj/
+unity-port/WhenPigsCanFlyUnity/Logs/
+unity-port/WhenPigsCanFlyUnity/UserSettings/
+unity-port/WhenPigsCanFlyUnity/*.csproj
+unity-port/WhenPigsCanFlyUnity/*.sln
+unity-port/WhenPigsCanFlyUnity/.vs/
+unity-port/WhenPigsCanFlyUnity/.vscode/
+unity-port/WhenPigsCanFlyUnity/Build/
+unity-port/WhenPigsCanFlyUnity/Builds/

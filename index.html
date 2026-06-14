@@ -124,9 +124,11 @@
     <button id="codeBtn">CHALLENGE</button>
   </div>
   <button id="camBtn">📷 3D VIEW: THIRD PERSON</button>
+  <button id="kidsBtn" style="margin-top:10px;background:#1d2240;border:1px solid #4a5388;color:#9ef01a;border-radius:8px;padding:8px 16px;font-weight:800;cursor:pointer;font-size:12px;letter-spacing:1px;">🧒 KIDS MODE: OFF</button>
   <div id="lb"></div>
   <button id="startBtn">FLY</button>
   <button id="combatBtn">🔫 PIG BRAWL · sandbox</button>
+  <p id="kidsHint" style="display:none;color:#9ef01a;font-size:11px;margin-top:6px;">✨ Bigger beat window · no brawl timer · auto-aim laser</p>
 </div>
 <button id="laserBtn" class="combatCtl">🔫</button>
 <button id="poopBtn" class="combatCtl">💩</button>
@@ -143,6 +145,9 @@
 import * as THREE from 'three';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {VRButton} from 'three/addons/webxr/VRButton.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 (() => {
 const memStore={};
 const store={
@@ -177,7 +182,8 @@ const ctx=flatCanvas.getContext('2d');
 const renderer=new THREE.WebGLRenderer({canvas:glCanvas,antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure=1.15;
+renderer.toneMappingExposure=0.92;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.xr.enabled=true;
@@ -189,6 +195,7 @@ const GRAV=-30,FLAP_V=11,CEIL=30,FLOOR=.7;
 const SPEED_MIN=7,SPEED_MAX=26,TURN_RATE=1.7;
 const CHUNK=60,VIEW_CHUNKS=3,CORRIDOR=3.2,PPU=14,PIG_R=.9;
 const MAX_LEVEL=10;
+let kidsMode=false;
 // escalating score thresholds — LVL_THRESH[i] = score needed to reach level i+1
 const LVL_THRESH=[0,30,70,125,195,285,400,540,710,920];
 let is3D=false,playing=false,dead=false,fpCam=false;
@@ -316,7 +323,8 @@ function checkBeat(){
   if(!AC) return false;
   const bi=beatInt();
   const ph=(AC.currentTime-beatRef)%bi;
-  return ph<.09||bi-ph<.09;
+  const window=kidsMode?.22:.09;
+  return ph<window||bi-ph<window;
 }
 const cam=new THREE.PerspectiveCamera(62,1,.1,500);
 // camera rig: identity when not presenting (cam moves directly, exactly as before);
@@ -332,9 +340,20 @@ function resize(){
 addEventListener('resize',resize); resize();
 const pmrem=new THREE.PMREMGenerator(renderer);
 scene.environment=pmrem.fromScene(new RoomEnvironment(),.04).texture;
-scene.environmentIntensity=.5;
-const hemi=new THREE.HemisphereLight(0xbfdfff,0x74c365,.85); scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xfff4dd,2.2); sun.position.set(40,60,20);
+scene.environmentIntensity=.55;
+
+// ---------- post-processing: bloom for premium browser-game look ----------
+const composer=new EffectComposer(renderer);
+const renderPass=new RenderPass(scene,cam); composer.addPass(renderPass);
+const bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.28,0.5,0.88);
+composer.addPass(bloomPass);
+// OutputPass intentionally omitted: renderer.outputColorSpace handles conversion and keeps scene balanced
+// const outputPass=new OutputPass(); composer.addPass(outputPass);
+function resizeComposer(){ composer.setSize(innerWidth,innerHeight); composer.setPixelRatio(Math.min(devicePixelRatio,2)); }
+addEventListener('resize',resizeComposer); resizeComposer();
+
+const hemi=new THREE.HemisphereLight(0xbfdfff,0x74c365,.9); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff4dd,2.4); sun.position.set(40,60,20);
 sun.castShadow=true;
 sun.shadow.mapSize.set(isTouch?1024:2048,isTouch?1024:2048);
 sun.shadow.camera.left=-55; sun.shadow.camera.right=55; sun.shadow.camera.top=55; sun.shadow.camera.bottom=-55;
@@ -342,10 +361,27 @@ sun.shadow.camera.near=10; sun.shadow.camera.far=180;
 sun.shadow.camera.updateProjectionMatrix();
 sun.shadow.bias=-.0006; sun.shadow.normalBias=.3;
 scene.add(sun); scene.add(sun.target);
-const groundMat=new THREE.MeshStandardMaterial({color:0x74c365});
+const groundTexCv=document.createElement('canvas'); groundTexCv.width=groundTexCv.height=512;
+{
+  const c=groundTexCv.getContext('2d');
+  c.fillStyle='#74c365'; c.fillRect(0,0,512,512);
+  for(let i=0;i<600;i++){
+    const x=Math.random()*512,y=Math.random()*512,r=3+Math.random()*6;
+    const shade=Math.random()<.5?'#6bb85a':'#82cc6e';
+    c.fillStyle=shade; c.beginPath(); c.arc(x,y,r,0,7); c.fill();
+  }
+  for(let i=0;i<80;i++){
+    const x=Math.random()*512,y=Math.random()*512,r=6+Math.random()*12;
+    c.fillStyle='rgba(90,160,70,.1)'; c.beginPath(); c.arc(x,y,r,0,7); c.fill();
+  }
+}
+const groundTex=new THREE.CanvasTexture(groundTexCv);
+groundTex.wrapS=groundTex.wrapT=THREE.RepeatWrapping; groundTex.repeat.set(90,90);
+groundTex.colorSpace=THREE.SRGBColorSpace;
+const groundMat=new THREE.MeshStandardMaterial({map:groundTex,color:0x74c365,roughness:.95});
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),groundMat);
 ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; scene.add(ground);
-// ---------- gradient sky dome ----------
+// ---------- gradient sky dome with rich atmospheric scattering ----------
 const skyMat=new THREE.ShaderMaterial({
   side:THREE.BackSide, depthWrite:false, fog:false,
   uniforms:{
@@ -358,16 +394,20 @@ const skyMat=new THREE.ShaderMaterial({
     void main(){
       vec3 d=normalize(vP);
       float h=clamp(d.y*.6+.35,0.,1.);
-      vec3 col=mix(bot,top,pow(h,1.15));
+      vec3 col=mix(bot,top,pow(h,1.25));
       float s=max(dot(d,sunDir),0.);
-      col+=sunCol*(pow(s,180.)*1.2+pow(s,16.)*.28)*haze;
-      col+=bot*pow(1.-h,3.)*.25*haze;
+      // bright sun disc + soft glow
+      col+=sunCol*(pow(s,260.)*2.2+pow(s,28.)*.55+pow(s,6.)*.08)*haze;
+      // anti-sun rim light
+      col+=bot*pow(1.-h,3.)*.35*haze;
+      // subtle horizon fog stripe
+      col=mix(col,bot,smoothstep(.0,.12,1.-h)*.18*haze);
       gl_FragColor=vec4(col,1.);
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`
 });
-const skyDome=new THREE.Mesh(new THREE.SphereGeometry(420,24,16),skyMat);
+const skyDome=new THREE.Mesh(new THREE.SphereGeometry(420,32,20),skyMat);
 skyDome.frustumCulled=false; scene.add(skyDome);
 const patchMat=new THREE.MeshStandardMaterial({color:0x5fae52});
 const patches=[];
@@ -384,7 +424,7 @@ const FLOWER_COLS=[0xffffff,0xffd1e8,0xfff3a8,0xffb1a1,0xcfe8ff];
 const dPos=new THREE.Vector3(),dQ=new THREE.Quaternion(),dS=new THREE.Vector3(),dM=new THREE.Matrix4(),dE=new THREE.Euler();
 function fieldPlace(m,i){
   const u=m.userData;
-  const x=pig.pos.x+(Math.random()-.5)*340,z=pig.pos.z+(Math.random()-.5)*340;
+  const x=pig.pos.x+(Math.random()-.5)*300,z=pig.pos.z+(Math.random()-.5)*300;
   u.x[i]=x; u.z[i]=z;
   u.place(m,i,x,z);
 }
@@ -399,23 +439,23 @@ function fieldRecycle(m){
   const u=m.userData; let dirty=false;
   for(let i=0;i<u.x.length;i++){
     const dx=u.x[i]-pig.pos.x,dz=u.z[i]-pig.pos.z;
-    if(dx*dx+dz*dz>32400){fieldPlace(m,i); dirty=true;}
+    if(dx*dx+dz*dz>22500){fieldPlace(m,i); dirty=true;}
   }
   if(dirty) m.instanceMatrix.needsUpdate=true;
 }
-const grass=makeField(new THREE.ConeGeometry(.18,1.1,5),grassMat,420,(m,i,x,z)=>{
-  const s=.5+Math.random()*1.1;
-  dPos.set(x,.55*s,z);
-  dQ.setFromEuler(dE.set(Math.random()*.16-.08,Math.random()*6.28,Math.random()*.16-.08));
-  dS.set(s*(.7+Math.random()*.6),s,s*(.7+Math.random()*.6));
+const grass=makeField(new THREE.ConeGeometry(.16,.9,5),grassMat,420,(m,i,x,z)=>{
+  const s=.4+Math.random()*.7;
+  dPos.set(x,.45*s,z);
+  dQ.setFromEuler(dE.set(Math.random()*.12-.06,Math.random()*6.28,Math.random()*.12-.06));
+  dS.set(s*(.7+Math.random()*.5),s,s*(.7+Math.random()*.5));
   dM.compose(dPos,dQ,dS); m.setMatrixAt(i,dM);
 });
-const flowers=makeField(new THREE.SphereGeometry(.2,6,5),flowerMat,170,(m,i,x,z)=>{
-  const s=.7+Math.random()*.7;
-  dPos.set(x,.2,z); dQ.identity(); dS.setScalar(s);
+const flowers=makeField(new THREE.SphereGeometry(.18,6,5),flowerMat,120,(m,i,x,z)=>{
+  const s=.6+Math.random()*.5;
+  dPos.set(x,.18,z); dQ.identity(); dS.setScalar(s);
   dM.compose(dPos,dQ,dS); m.setMatrixAt(i,dM);
 });
-for(let i=0;i<170;i++) flowers.setColorAt(i,new THREE.Color(FLOWER_COLS[i%FLOWER_COLS.length]));
+for(let i=0;i<120;i++) flowers.setColorAt(i,new THREE.Color(FLOWER_COLS[i%FLOWER_COLS.length]));
 flowers.instanceColor.needsUpdate=true;
 const rocks=makeField(new THREE.DodecahedronGeometry(.6),rockMat,36,(m,i,x,z)=>{
   const s=.5+Math.random()*1.3;
@@ -470,14 +510,64 @@ function buildPig(bodyCol=0xff9ec0,darkCol=0xe87aa4){
   const eyeMat=new THREE.MeshBasicMaterial({color:0x222222});
   [[1.25,.5,.22],[1.25,.5,-.22]].forEach(p=>{const e=new THREE.Mesh(new THREE.SphereGeometry(.07,8,6),eyeMat);e.position.set(...p);g.add(e);});
   [[1.05,.75,.3],[1.05,.75,-.3]].forEach(p=>{const e=new THREE.Mesh(new THREE.ConeGeometry(.16,.32,8),dark);e.position.set(...p);e.rotation.x=p[2]>0?-.4:.4;g.add(e);});
-  const wingMat=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.95});
-  const wL=new THREE.Mesh(new THREE.BoxGeometry(.9,.08,.6),wingMat); wL.position.set(-.1,.55,.7); g.add(wL);
-  const wR=wL.clone(); wR.position.z=-.7; g.add(wR);
+  const wingMat=new THREE.MeshStandardMaterial({color:0xffffff,transparent:true,opacity:.92,roughness:.45});
+  function makeWing(){
+    const wing=new THREE.Group();
+    // inner feather (wide, close to body)
+    const inF=new THREE.Mesh(new THREE.BoxGeometry(.6,.08,.55),wingMat);
+    inF.position.set(.15,.04,.32); inF.rotation.x=.25; inF.scale.set(1,1,.92);
+    // mid feather (longer, tapered)
+    const mid=new THREE.Mesh(new THREE.BoxGeometry(.9,.07,.42),wingMat);
+    mid.position.set(-.4,.04,.28); mid.rotation.x=.18; mid.scale.set(1,.9,.7);
+    // tip (pointed)
+    const tip=new THREE.Mesh(new THREE.ConeGeometry(.18,.55,7),wingMat);
+    tip.rotation.z=Math.PI/2; tip.position.set(-.95,.03,.24); tip.scale.set(1,.7,.55);
+    // trailing edge cutout feathers
+    const trail=new THREE.Mesh(new THREE.BoxGeometry(.65,.06,.32),wingMat);
+    trail.position.set(-.3,.02,.52); trail.rotation.x=.45; trail.scale.set(1,.8,.6);
+    wing.add(inF,mid,tip,trail);
+    return wing;
+  }
+  const wL=makeWing(); wL.position.set(-.25,.58,.55); wL.scale.set(1.25,1.25,1.25); g.add(wL);
+  const wR=makeWing(); wR.position.set(-.25,.58,-.55); wR.scale.set(1.25,1.25,-1.25); g.add(wR);
   g.userData.wings=[wL,wR]; g.userData.bodyMat=pink; g.userData.wingMat=wingMat;
   const tail=new THREE.Mesh(new THREE.TorusGeometry(.15,.05,8,12,4.5),dark); tail.position.set(-1,.15,0); g.add(tail);
   return g;
 }
 const pigMesh=buildPig(); pigMesh.traverse(o=>{if(o.isMesh)o.castShadow=true;}); scene.add(pigMesh);
+// ---------- speed wind streaks (3D fast flight) ----------
+const STREAK_N=48;
+const streakGeo=new THREE.CylinderGeometry(.025,.025,1.2,4);
+streakGeo.translate(0,.6,0); // pivot at base
+const streakMat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.55,depthWrite:false,toneMapped:false,fog:false});
+const streaks=[];
+for(let i=0;i<STREAK_N;i++){
+  const m=new THREE.Mesh(streakGeo,streakMat.clone());
+  m.visible=false; scene.add(m);
+  streaks.push({mesh:m,life:0,max:0,vel:new THREE.Vector3()});
+}
+function spawnStreak(now){
+  const s=streaks.find(s=>s.life<=0); if(!s) return;
+  const back=fwdOf(pig.yaw).negate();
+  const side=new THREE.Vector3(-back.z,0,back.x);
+  const off=side.clone().multiplyScalar((Math.random()-.5)*1.6).add(new THREE.Vector3(0,(Math.random()-.5)*1.2,0));
+  s.mesh.position.copy(pig.pos).add(back).add(off);
+  s.mesh.scale.set(1,.5+Math.random()*1.2,1);
+  s.mesh.rotation.set(Math.random()*6.28,Math.random()*6.28,Math.random()*6.28);
+  s.vel.copy(back).multiplyScalar(8+Math.random()*6).add(off.multiplyScalar(.5));
+  s.max=.35+Math.random()*.25; s.life=s.max;
+  s.mesh.visible=true; s.mesh.material.opacity=.55;
+}
+function updateStreaks(dt){
+  for(const s of streaks){
+    if(s.life<=0){ s.mesh.visible=false; continue; }
+    s.life-=dt;
+    s.mesh.position.addScaledVector(s.vel,dt);
+    s.mesh.scale.z+=dt*3;
+    s.mesh.material.opacity=(s.life/s.max)*.55;
+    if(s.life<=0) s.mesh.visible=false;
+  }
+}
 // ---------- starfield (fades in as night falls) ----------
 const STAR_N=500;
 const starPos=new Float32Array(STAR_N*3);
@@ -501,14 +591,21 @@ const mtnMat=new THREE.MeshStandardMaterial({color:0x5fae52,flatShading:true});
 const mtns=[];
 for(let i=0;i<14;i++){
   const h=45+Math.random()*55;
-  const m=new THREE.Mesh(new THREE.ConeGeometry(34+Math.random()*36,h,5),mtnMat);
+  const m=new THREE.Group();
+  const main=new THREE.Mesh(new THREE.ConeGeometry(34+Math.random()*36,h,5),mtnMat);
+  main.position.y=h/2-2; m.add(main);
+  // add a smaller secondary peak for a jagged silhouette
+  const subH=h*(.45+Math.random()*.35), subW=(34+Math.random()*36)*.55;
+  const sub=new THREE.Mesh(new THREE.ConeGeometry(subW,subH,5),mtnMat);
+  sub.position.set((Math.random()-.5)*22,subH/2-2,(Math.random()-.5)*22);
+  m.add(sub);
   m.userData.h=h; scene.add(m); mtns.push(m);
 }
 function scatterMtns(){
   mtns.forEach((m,i)=>{
     const a=i/mtns.length*Math.PI*2+(Math.random()-.5)*.4;
     const R=175+Math.random()*55;
-    m.position.set(pig.pos.x+Math.cos(a)*R,m.userData.h/2-2,pig.pos.z+Math.sin(a)*R);
+    m.position.set(pig.pos.x+Math.cos(a)*R,0,pig.pos.z+Math.sin(a)*R);
   });
 }
 scatterMtns();
@@ -532,10 +629,10 @@ const matSilo=new THREE.MeshStandardMaterial({color:0xc9cdd4});
 const matSiloTop=new THREE.MeshStandardMaterial({color:0x9aa1ab});
 const matTrunk=new THREE.MeshStandardMaterial({color:0x8b5a2b});
 const matLeaf=new THREE.MeshStandardMaterial({color:0x3e8e41,flatShading:true});
-const matRing=new THREE.MeshStandardMaterial({color:0xffd700,metalness:.85,roughness:.25});
+const matRing=new THREE.MeshStandardMaterial({color:0xffd700,emissive:0xffaa00,emissiveIntensity:.6,metalness:.85,roughness:.25});
 const matBalloon=new THREE.MeshStandardMaterial({color:0xb084f5,roughness:.35});
-const matFence=new THREE.MeshStandardMaterial({color:0x39d2ff,roughness:.4});
-const matCoin=new THREE.MeshStandardMaterial({color:0x9ef01a,metalness:.6,roughness:.3});
+const matFence=new THREE.MeshStandardMaterial({color:0x39d2ff,emissive:0x0066ff,emissiveIntensity:.35,roughness:.4});
+const matCoin=new THREE.MeshStandardMaterial({color:0x9ef01a,emissive:0x9ef01a,emissiveIntensity:.55,metalness:.6,roughness:.3});
 function rng(seed){return function(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};}
 function buildChunk(cx,cz){
   const key=cx+','+cz;
@@ -582,20 +679,40 @@ function buildChunk(cx,cz){
       const barn=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),matBarn); barn.position.set(x,h/2,z);
       const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.75,3,4),matRoof);
       roof.position.set(x,h+1.5,z); roof.rotation.y=Math.PI/4;
-      group.add(barn,roof);
+      // big barn door
+      const door=new THREE.Mesh(new THREE.PlaneGeometry(w*.28,h*.45),new THREE.MeshStandardMaterial({color:0x6e1f1f,roughness:.9}));
+      door.position.set(x,h*.32,z+d/2+.02); door.rotation.y=0;
+      // loft window
+      const win=new THREE.Mesh(new THREE.PlaneGeometry(w*.18,w*.18),new THREE.MeshStandardMaterial({color:0xfff4c4,emissive:0x221a0a,roughness:.6}));
+      win.position.set(x,h*.78,z+d/2+.02);
+      group.add(barn,roof,door,win);
       obstacles.push({kind:'barn',pos:new THREE.Vector3(x,0,z),r:Math.max(w,d)/2+.6,h:h+2.8,w:Math.max(w,d)});
     } else if(t<fc+cc+.38){
       const h=10+rand()*8+level*.8,r=1.8+rand();
       const silo=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,12),matSilo); silo.position.set(x,h/2,z);
       const top=new THREE.Mesh(new THREE.SphereGeometry(r,12,8,0,Math.PI*2,0,Math.PI/2),matSiloTop); top.position.set(x,h,z);
-      group.add(silo,top);
+      // horizontal bands
+      const bands=new THREE.Group();
+      for(let bi=1;bi<4;bi++){
+        const band=new THREE.Mesh(new THREE.CylinderGeometry(r+.04,r+.04,.18,12),new THREE.MeshStandardMaterial({color:0xaab0b8,roughness:.5}));
+        band.position.set(x,h*bi/4,z); bands.add(band);
+      }
+      group.add(silo,top,bands);
       obstacles.push({kind:'silo',pos:new THREE.Vector3(x,0,z),r:r+.6,h:h+r,w:r*2});
     } else if(t<fc+cc+.58){
       const h=4+rand()*5,lr=2+rand()*1.5;
-      const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.4,.55,h,8),matTrunk); trunk.position.set(x,h/2,z);
-      const leaf=new THREE.Mesh(new THREE.SphereGeometry(lr,10,8),matLeaf); leaf.position.set(x,h+1.5,z); leaf.scale.y=1.2;
-      group.add(trunk,leaf);
-      obstacles.push({kind:'tree',pos:new THREE.Vector3(x,0,z),r:lr+.4,h:h+lr+1.5,w:lr*2,trunkH:h,leafR:lr});
+      const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.35,.5,h*.85,8),matTrunk); trunk.position.set(x,h*.42,z);
+      const canopy=new THREE.Group();
+      const leafMats=[matLeaf,new THREE.MeshStandardMaterial({color:0x4a9e4d,flatShading:true}),new THREE.MeshStandardMaterial({color:0x5dae52,flatShading:true})];
+      for(let li=0;li<5;li++){
+        const s=.55+rand()*.65;
+        const lx=x+(rand()-.5)*lr*.9,ly=h*.9+rand()*lr*.7,lz=z+(rand()-.5)*lr*.9;
+        const leaf=new THREE.Mesh(new THREE.SphereGeometry(lr*.55,9,7),leafMats[li%3]);
+        leaf.position.set(lx,ly,lz); leaf.scale.set(s,s*(.8+rand()*.4),s);
+        canopy.add(leaf);
+      }
+      group.add(trunk,canopy);
+      obstacles.push({kind:'tree',pos:new THREE.Vector3(x,0,z),r:lr+.6,h:h+lr+1.2,w:(lr+.6)*2,trunkH:h,leafR:lr});
     } else if(t<fc+cc+.62){
       const y=10+rand()*15;
       const coin=new THREE.Mesh(new THREE.CylinderGeometry(1,1,.25,5),matCoin);
@@ -737,16 +854,18 @@ function clearInjected(){
 addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.code==='Space'){e.preventDefault(); if(!e.repeat){playing?flap():start();}}
-  if(e.code==='Tab'){e.preventDefault(); toggleDim();}
+  if(e.code==='Tab'){e.preventDefault(); if(combat){poopTap=true;}else{toggleDim();}}
+  if(e.code==='KeyF'&&combat){laserTap=true;}
+  if(e.code==='KeyC'&&combat){poopTap=true;}
   if(e.code==='Escape'&&combat){exitCombat();}
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 // ---------- input: mouse (desktop) ----------
 addEventListener('pointerdown',e=>{
   if(e.pointerType==='touch') return;
-  if(e.button===2){toggleDim();return;}
   if(e.target.closest('#overlay,#switchBtn')) return;
-  if(e.button===0&&playing){flap(); mouseHeld=true;}
+  if(e.button===2){if(combat)poopTap=true;else toggleDim();return;}
+  if(e.button===0&&playing){if(combat)laserTap=true;else{flap(); mouseHeld=true;}}
 });
 addEventListener('pointerup',e=>{if(e.button===0)mouseHeld=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
@@ -815,7 +934,11 @@ function flap(){
   if(tMs-lastFlap<130) return;
   lastFlap=tMs;
   pig.vy=FLAP_V;
-  if(combat) return; // brawl flaps are pure lift — no rhythm scoring/HUD
+  if(combat){
+    // in kids mode, every flap also fires a forward laser if ready
+    if(kidsMode&&playerFireCd<=0){ firePlayerLaser(true); playerFireCd=LASER_CD; }
+    return;
+  }
   if(checkBeat()){
     beatChain++; bestChain=Math.max(bestChain,beatChain);
     multiplier=beatChain>=8?4:beatChain>=5?3:beatChain>=3?2:1;
@@ -842,6 +965,12 @@ function toggleDim(){
   if(!is3D){pig.bank=0; joyId=null; joyVec={x:0,y:0}; joyBase.style.display='none';
     nextInjAt=Math.max(nextInjAt,totalDist+10);}
   joyUI();
+  // dramatic flip flash
+  const fl=document.getElementById('flashLayer');
+  fl.classList.remove('flash'); void fl.offsetWidth;
+  fl.style.background=is3D?'rgba(255,255,255,.75)':'rgba(255,255,255,.45)';
+  fl.classList.add('flash');
+  setTimeout(()=>{ fl.classList.remove('flash'); fl.style.background='transparent'; },360);
 }
 const LVL_SUBS={2:'crows incoming 🐦 · bass drops in',3:'⚡ neon gates · arp unlocked · balloons bob',4:'crow swarms · double hats',5:'moving gates · sub bass',6:'dusk falls',7:'neon night · synth pads',8:'crow chaos',9:'darkness',10:'MAX — full synth wall 🔥'};
 function checkLevel(){
@@ -886,6 +1015,9 @@ document.getElementById('codeBtn').addEventListener('click',()=>{
 const camBtn=document.getElementById('camBtn');
 function updateCamBtn(){camBtn.textContent='📷 3D VIEW: '+(fpCam?'FIRST PERSON':'THIRD PERSON');}
 camBtn.addEventListener('click',()=>{fpCam=!fpCam; store.set('neon-oink-fp',fpCam); updateCamBtn();});
+const kidsBtn=document.getElementById('kidsBtn');
+function updateKidsBtn(){kidsBtn.textContent='🧒 KIDS MODE: '+(kidsMode?'ON':'OFF'); document.getElementById('kidsHint').style.display=kidsMode?'block':'none';}
+kidsBtn.addEventListener('click',()=>{kidsMode=!kidsMode; store.set('neon-oink-kids',kidsMode); updateKidsBtn();});
 const overlay=document.getElementById('overlay');
 document.getElementById('startBtn').addEventListener('click',start);
 function start(){
@@ -1224,16 +1356,26 @@ const vrScreen=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
 vrScreen.renderOrder=997; vrScreen.position.set(0,0,-3.4); vrScreen.visible=false; vrScreen.frustumCulled=false;
 rig.add(vrScreen);
 // controllers — normal: either trigger = flap, grip = flip.
-// combat: LEFT trigger = flap, RIGHT trigger = laser, RIGHT face button (A/X) = poop, grip = flip.
+// brawl (regular): LEFT trigger = flap, RIGHT trigger = laser, grip = flip.
+// brawl (kids): LEFT trigger = flap + auto-laser, RIGHT trigger = poop bomb, grip = flip.
 for(const i of[0,1]){
   const ctl=renderer.xr.getController(i);
   ctl.addEventListener('connected',e=>{ctl.userData.hand=e.data&&e.data.handedness;});
   ctl.addEventListener('selectstart',()=>{
-    if(combat&&ctl.userData.hand==='right'){ vrLaserHeld=true; return; } // right trigger = laser
+    if(combat){
+      if(kidsMode){
+        if(ctl.userData.hand==='right'){ poopTap=true; return; }
+      }else{
+        if(ctl.userData.hand==='right'){ vrLaserHeld=true; return; }
+      }
+    }
     vrHeld.add(i);
     if(playing&&!dead) flap(); else start();
   });
-  ctl.addEventListener('selectend',()=>{vrHeld.delete(i); if(ctl.userData.hand==='right') vrLaserHeld=false;});
+  ctl.addEventListener('selectend',()=>{
+    if(combat&&!kidsMode&&ctl.userData.hand==='right'){ vrLaserHeld=false; return; }
+    vrHeld.delete(i);
+  });
   ctl.addEventListener('squeezestart',()=>{if(renderer.xr.isPresenting) toggleDim();}); // grip = flip 2D/3D
   rig.add(ctl);
 }
@@ -1246,10 +1388,10 @@ function pollVrInput(){
       const ax=gp.axes;
       const x=ax.length>=4?ax[2]:(ax[0]||0);
       const y=ax.length>=4?ax[3]:(ax[1]||0);
-      if(Math.abs(x)>.12) vrTurn=-x;   // stick right → turn right (same sign convention as joyVec)
-      if(Math.abs(y)>.12) vrSpeedY=y;  // stick forward (negative) → faster, like W
-    } else if(src.handedness==='right'&&combat){
-      if(gp.buttons[4]&&gp.buttons[4].pressed) poopTap=true;  // A/X button = poop bomb
+      if(Math.abs(x)>.12) vrTurn=-x;
+      if(Math.abs(y)>.12) vrSpeedY=y;
+    } else if(src.handedness==='right'&&combat&&kidsMode){
+      if(gp.buttons[4]&&gp.buttons[4].pressed) poopTap=true;
     }
   }
 }
@@ -1287,6 +1429,7 @@ let combat=false,kos=0,points=0,deaths=0,playerHP=100,hurtT=0,invulnT=0,playerFi
 let laserTap=false,poopTap=false,vrLaserHeld=false,matchT=0,lastSec=-1;
 const COMBAT_HP=100,LASER_DMG=22,BOT_DMG=12,POOP_DMG=60,LASER_RANGE=70,LASER_CD=.26,POOP_CD=.85,RESPAWN_T=3;
 const MATCH_DUR=90,PTS_LASER=10,PTS_POOP=25,PTS_KO=50;
+function matchDur(){return kidsMode?9999:MATCH_DUR;}
 const hpfill=document.getElementById('hpfill');
 const xhair=document.getElementById('xhair'),killPop=document.getElementById('killPop');
 const eArrows=[document.getElementById('arrow0'),document.getElementById('arrow1'),document.getElementById('arrow2')];
@@ -1352,10 +1495,11 @@ function bestTargetInCone(eye,fwd,horizCone){
   }
   return best;
 }
-function firePlayerLaser(){
+function firePlayerLaser(auto=false){
   pigEye(pig.pos,pig.yaw,_eye);
   const fwd=fwdOf(pig.yaw);
-  const tgt=bestTargetInCone(_eye,fwd,is3D?.34:.16); // tighter cone in 2D enforces the plane
+  const cone=(is3D?.34:.16)*(kidsMode?2.2:1);
+  const tgt=bestTargetInCone(_eye,fwd,cone); // wider cone in kids mode for forgiving auto-aim
   let end;
   if(tgt){ end=tgt.pos.clone(); tgt.hp-=LASER_DMG; tgt.hitT=.12; tgt.pos.addScaledVector(fwd,1.6); points+=PTS_LASER; squeal(false); if(tgt.hp<=0) koBot(tgt); updateCombatHUD(); }
   else end=_eye.clone().addScaledVector(fwd,LASER_RANGE);
@@ -1365,7 +1509,7 @@ function fireBotLaser(b){
   const eye=b.pos.clone().addScaledVector(fwdOf(b.yaw),1.2); eye.y+=.4;
   const dist=b.pos.distanceTo(pig.pos);
   const moving=Math.abs(turnSm)>.2||Math.abs(pig.vy)>4;     // reward dodging — moving pigs are hard to hit
-  const acc=Math.max(.12,.6-Math.min(.32,dist/200)-(moving?.22:0));
+  const acc=kidsMode?.08:Math.max(.12,.6-Math.min(.32,dist/200)-(moving?.22:0));
   const hit=Math.random()<acc;
   const aimPt=hit?pig.pos.clone():pig.pos.clone().add(new THREE.Vector3((Math.random()-.5)*7,(Math.random()-.5)*7,(Math.random()-.5)*7));
   spawnBeam(eye,aimPt,0xff5a5a); zap(false);
@@ -1411,8 +1555,12 @@ function updateCombat(dt,now,fwd,side){
   // match timer
   matchT=Math.max(0,matchT-dt);
   const sec=Math.ceil(matchT);
-  if(sec!==lastSec){ lastSec=sec; document.getElementById('mult').textContent='⏱ '+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0'); }
-  if(matchT<=0){ endMatch(); return; }
+  if(sec!==lastSec){
+    lastSec=sec;
+    if(kidsMode) document.getElementById('mult').textContent='🧒 KIDS';
+    else document.getElementById('mult').textContent='⏱ '+Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
+  }
+  if(matchT<=0&&!kidsMode){ endMatch(); return; }
   // player weapons (frame-based, cooldown-gated)
   playerFireCd-=dt; poopCd-=dt;
   if((keys['KeyF']||laserTap||vrLaserHeld)&&playerFireCd<=0){ firePlayerLaser(); playerFireCd=LASER_CD; }
@@ -1424,15 +1572,16 @@ function updateCombat(dt,now,fwd,side){
     const toP=_v.copy(pig.pos).sub(b.pos); const dist=toP.length();
     b.yaw+=angTo(b.yaw,Math.atan2(-toP.z,toP.x))*Math.min(1,dt*1.6);
     const bf=fwdOf(b.yaw);
-    const sp=dist>22?11:dist<12?-7:2.5;
+    const aimErr=kidsMode?.35:0;
+    const sp=dist>22?11*(1-aimErr):dist<12?-7*(1-aimErr):2.5;
     b.pos.addScaledVector(bf,sp*dt);
-    b.pos.x+=Math.sin(now*.0013+b.bob)*dt*5;            // lazy strafe (dodges off your 2D plane)
-    b.pos.z+=Math.cos(now*.0017+b.bob)*dt*5;
+    b.pos.x+=Math.sin(now*.0013+b.bob)*dt*5*(kidsMode?.5:1);
+    b.pos.z+=Math.cos(now*.0017+b.bob)*dt*5*(kidsMode?.5:1);
     const ty=pig.pos.y+Math.sin(now*.001+b.bob)*3;
     b.pos.y+=(ty-b.pos.y)*Math.min(1,dt*1.3);
     b.pos.y=Math.max(FLOOR+1,Math.min(CEIL,b.pos.y));
     b.fireCd-=dt;
-    if(b.fireCd<=0&&dist<52){ if(Math.random()<.6) fireBotLaser(b); b.fireCd=1.1+Math.random()*1.4; }
+    if(b.fireCd<=0&&dist<52){ if(Math.random()<(kidsMode?.25:.6)) fireBotLaser(b); b.fireCd=(kidsMode?2.2:1.1)+Math.random()*1.4; }
     b.mesh.position.copy(b.pos);
     b.mesh.rotation.set(0,b.yaw,0); b.mesh.rotateZ(Math.sin(now*.02+b.bob)*.1);
     const wt=Math.sin(now*.018+b.bob)*.7;
@@ -1521,7 +1670,7 @@ function combatSetVisible(on){
 function updateCombatHUD(){
   document.getElementById('score').textContent=points;
   document.getElementById('rings').textContent='💀 '+kos+'   ❤ '+Math.max(0,Math.round(playerHP));
-  document.getElementById('lvl').textContent='PIG BRAWL · F laser · C poop · Esc quit';
+  document.getElementById('lvl').textContent=kidsMode?'PIG BRAWL · SPACE=flap+laser · TAB/click=poop':'PIG BRAWL · SPACE/F/click laser · TAB/C/R-click poop · Esc quit';
   document.getElementById('chain').textContent='';
   const hp=Math.max(0,playerHP/COMBAT_HP);
   if(hpfill){ hpfill.style.width=(hp*100)+'%'; hpfill.style.background=hp>.5?'#7fff6a':hp>.25?'#ffd24a':'#ff5a5a'; }
@@ -1529,7 +1678,7 @@ function updateCombatHUD(){
 function startCombat(){
   start();                       // reuse flight init (sets 2D); then convert to a 3D brawl
   combat=true; kos=0; points=0; deaths=0; playerHP=COMBAT_HP; hurtT=0; invulnT=1.5; playerFireCd=0; poopCd=0;
-  matchT=MATCH_DUR; lastSec=-1;
+  matchT=matchDur(); lastSec=-1;
   document.body.classList.add('combat'); if(isTouch) document.body.classList.add('show-ctl');
   // force 3D instantly (no morph) — brawling reads best in the round world
   is3D=true; morphActive=false; morphT=1;
@@ -1555,6 +1704,7 @@ function endMatch(){
   overlay.style.display='flex';
 }
 document.getElementById('combatBtn').addEventListener('click',startCombat);
+// touch controls: regular brawl keeps laser and poop separate; kids mode simplifies both to flap+laser / poop
 document.getElementById('laserBtn').addEventListener('pointerdown',e=>{e.preventDefault();laserTap=true;});
 document.getElementById('poopBtn').addEventListener('pointerdown',e=>{e.preventDefault();poopTap=true;});
 let last=performance.now();
@@ -1597,6 +1747,8 @@ function loop(now){
     totalDist+=spd*dt; distAcc+=spd*dt;
     if(!combat&&distAcc>=10){score+=Math.floor(distAcc/10)*multiplier; distAcc%=10; updateHUD(); checkLevel();}
     updateChunks(); updateDynamics(now,dt);
+    if(is3D&&playing&&!combat&&spd>14&&Math.random()<.45) spawnStreak(now);
+    updateStreaks(dt);
     if(!combat&&!is3D&&totalDist>=nextInjAt){injectObstacle(fwd,side); nextInjAt=totalDist+injGap();}
     pruneInjected(fwd);
     if(combat) updateCombat(dt,now,fwd,side);
@@ -1609,7 +1761,7 @@ function loop(now){
     pigMesh.rotation.set(0,pig.yaw,0);
     pigMesh.rotateZ(Math.max(-.6,Math.min(.5,pig.vy*.045)));
     pigMesh.rotateX(-pig.bank);
-    const wt=(gliding()&&pig.vy<=0)?.12+Math.sin(now*.006)*.06:Math.sin(now*.02)*(pig.vy>0?.85:.3);
+    const wt=(gliding()&&pig.vy<=0)?.35+Math.sin(now*.012)*.18:Math.sin(now*.035)*(pig.vy>0?1.1:.55);
     pigMesh.userData.wings[0].rotation.x=wt;
     pigMesh.userData.wings[1].rotation.x=-wt;
     ground.position.x=pig.pos.x; ground.position.z=pig.pos.z;
@@ -1669,7 +1821,7 @@ function loop(now){
     mtns.forEach(m=>{
       if(Math.hypot(m.position.x-pig.pos.x,m.position.z-pig.pos.z)>300){
         const a=Math.random()*Math.PI*2,R=185+Math.random()*45;
-        m.position.set(pig.pos.x+Math.cos(a)*R,m.userData.h/2-2,pig.pos.z+Math.sin(a)*R);
+        m.position.set(pig.pos.x+Math.cos(a)*R,0,pig.pos.z+Math.sin(a)*R);
       }
     });
     if(!xrOn){
@@ -1697,7 +1849,7 @@ function loop(now){
     // sun + shadow frustum track the pig
     sun.position.set(pig.pos.x+40,60,pig.pos.z+25);
     sun.target.position.set(pig.pos.x,0,pig.pos.z);
-    renderer.render(scene,cam);
+    if(xrOn) renderer.render(scene,cam); else composer.render();
   }
   if(!is3D) draw2D(fwd,side,now);
   if(xrOn&&!is3D) vrScreenTex.needsUpdate=true; // push the freshly drawn 2D frame onto the VR screen
@@ -1722,6 +1874,7 @@ applyPalette();
 (async()=>{
   const lb=await store.get('neon-oink-lb'); if(lb)renderLB(lb);
   fpCam=!!(await store.get('neon-oink-fp')); updateCamBtn();
+  kidsMode=!!(await store.get('neon-oink-kids')); updateKidsBtn();
 })();
 renderer.setAnimationLoop(loop);
 if('serviceWorker' in navigator){
