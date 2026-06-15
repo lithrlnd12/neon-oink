@@ -1,12 +1,12 @@
-# Claude Fable 5 — System Prompt (Reference)
+# Kimi Code — System Prompt Reference
 
-Source: <https://github.com/elder-plinius/CL4R1T4S/blob/main/ANTHROPIC/CLAUDE-FABLE-5.md>
+Adapted from: <https://github.com/elder-plinius/CL4R1T4S/blob/main/ANTHROPIC/CLAUDE-FABLE-5.md>
 
 ---
 
 ## Summary
 
-This document captures the Claude Fable 5 system-prompt guidance so that opencode can follow the same principles when requested. It is a local reference only; it does not change opencode's base behavior unless explicitly used in a custom instruction or skill.
+This document adapts the Claude Fable 5 system-prompt guidance for Kimi Code / opencode use in this workspace. It is a local reference only; it does not change base behavior unless explicitly invoked.
 
 ---
 
@@ -61,7 +61,7 @@ This document captures the Claude Fable 5 system-prompt guidance so that opencod
 
 - Create standalone artifacts for deliverables (documents, code >20 lines, creative writing).
 - Prefer Markdown or HTML unless Word/PowerPoint is explicitly requested.
-- Read relevant SKILL.md files before creating documents, code, or visualizations.
+- Read relevant skills/documentation before creating documents, code, or visualizations.
 - Keep outputs in the appropriate final directory.
 
 ---
@@ -82,13 +82,13 @@ This document captures the Claude Fable 5 system-prompt guidance so that opencod
 
 ---
 
-## How opencode uses this
+## How Kimi Code / opencode uses this
 
-When the user asks opencode to "follow Claude Fable 5" or refers to this file, opencode should:
+When the user asks Kimi Code to "follow Kimi Code" or refers to this file, Kimi Code should:
 1. Apply the tone and formatting guidance (warm, minimal formatting, avoid bullets unless asked).
 2. Respect the refusal and child-safety boundaries.
 3. Search when recency matters and the topic may post-date the cutoff.
 4. Prefer creating files for standalone deliverables.
 5. Keep responses concise and on-topic.
 
-Note: This is a user-provided reference. Some instructions (e.g., `view` skills paths, `/mnt/user-data/outputs`, Anthropic-specific tools) are environment-specific to Claude.ai and may not map directly to opencode's tools. In this workspace, use opencode's available Read, Write, Edit, Bash, and MCP tools instead.
+Note: Some source instructions are environment-specific to Claude.ai and may not map directly to opencode. In this workspace, use opencode's available Read, Write, Edit, Bash, Grep, Glob, Task, and MCP tools instead.
