@@ -37,6 +37,12 @@ namespace WhenPigsCanFly
         public bool IsPlayer { get => isPlayer; set => isPlayer = value; }
         public bool Is3D { get; set; } = true;
 
+        [Header("Visuals")]
+        [SerializeField] private Transform wingL;
+        [SerializeField] private Transform wingR;
+        [SerializeField] private float wingFlapAngle = 35f;
+        [SerializeField] private float wingFlapSpeed = 18f;
+
         public Vector3 Velocity { get; private set; }
         public float VerticalSpeed { get; private set; }
         public float Yaw { get; set; }
@@ -47,12 +53,17 @@ namespace WhenPigsCanFly
 
         private float turnSmoothed;
         private float lastFlapTime;
+        private float flapAnim;
 
         private CharacterController controller;
 
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
+            if (wingL == null)
+                wingL = transform.Find("WingL");
+            if (wingR == null)
+                wingR = transform.Find("WingR");
         }
 
         /// <summary>
@@ -80,6 +91,7 @@ namespace WhenPigsCanFly
             if (now - lastFlapTime < flapRateMs) return false;
             lastFlapTime = now;
             VerticalSpeed = flapVelocity;
+            flapAnim = 1f;
             return true;
         }
 
@@ -138,6 +150,16 @@ namespace WhenPigsCanFly
         {
             float pitch = Mathf.Clamp(VerticalSpeed * pitchFactor, -0.6f, 0.5f);
             transform.rotation = Quaternion.Euler(-Bank * Mathf.Rad2Deg, Yaw * Mathf.Rad2Deg, -pitch * Mathf.Rad2Deg);
+
+            if (wingL != null && wingR != null)
+            {
+                flapAnim -= Time.deltaTime * wingFlapSpeed;
+                if (flapAnim < 0f) flapAnim = 0f;
+                float idle = Mathf.Sin(Time.time * 8f) * 8f;
+                float angle = idle + flapAnim * wingFlapAngle;
+                wingL.localRotation = Quaternion.Euler(0f, 0f, angle);
+                wingR.localRotation = Quaternion.Euler(0f, 0f, -angle);
+            }
         }
 
         private void Start() 
