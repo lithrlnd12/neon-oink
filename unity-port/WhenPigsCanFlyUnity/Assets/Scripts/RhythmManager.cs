@@ -34,6 +34,18 @@ namespace WhenPigsCanFly
 
         public int Bpm => baseBpm + (Level - 1) * bpmPerLevel;
 
+        public static RhythmManager Instance { get; private set; }
+
+        private void Awake()
+        {
+            Instance = this;
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
         private void Start()
         {
             ResetRhythm();

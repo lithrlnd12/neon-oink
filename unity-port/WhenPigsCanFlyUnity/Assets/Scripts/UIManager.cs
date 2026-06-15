@@ -109,23 +109,24 @@ namespace WhenPigsCanFly
 
         private void OnGameStarted()
         {
-            menuOverlay.SetActive(false);
-            deathOverlay.SetActive(false);
+            if (menuOverlay != null) menuOverlay.SetActive(false);
+            if (deathOverlay != null) deathOverlay.SetActive(false);
         }
 
         private void OnGameEnded()
         {
-            deathOverlay.SetActive(true);
-            finalScoreText.text = $"Score {gameManager.Score} · LVL {gameManager.Level} · ⭕{gameManager.RingsHit} · Best chain {gameManager.BestChain}";
-            runCodeText.text = "YOUR RUN CODE: " + gameManager.SeedToCode(gameManager.RunSeed) + " — share it!";
+            if (deathOverlay != null) deathOverlay.SetActive(true);
+            if (finalScoreText != null)
+                finalScoreText.text = $"Score {gameManager.Score} · LVL {gameManager.Level} · ⭕{gameManager.RingsHit} · Best chain {gameManager.BestChain}";
+            if (runCodeText != null)
+                runCodeText.text = "YOUR RUN CODE: " + gameManager.SeedToCode(gameManager.RunSeed) + " — share it!";
         }
 
         private void OnLevelUp()
         {
-            levelBannerTitle.text = "LEVEL " + gameManager.Level;
-            levelBannerSubtitle.text = levelSubtitles[Mathf.Clamp(gameManager.Level, 0, levelSubtitles.Length - 1)];
-            levelBanner.SetActive(true);
-            // Animator trigger can be fired here.
+            if (levelBannerTitle != null) levelBannerTitle.text = "LEVEL " + gameManager.Level;
+            if (levelBannerSubtitle != null) levelBannerSubtitle.text = levelSubtitles[Mathf.Clamp(gameManager.Level, 0, levelSubtitles.Length - 1)];
+            if (levelBanner != null) levelBanner.SetActive(true);
         }
 
         /// <summary>

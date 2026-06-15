@@ -2086,6 +2086,10 @@ GameObject:
   m_Component:
   - component: {fileID: 1185926267}
   - component: {fileID: 1185926266}
+  - component: {fileID: 1185926271}
+  - component: {fileID: 1185926270}
+  - component: {fileID: 1185926269}
+  - component: {fileID: 1185926268}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -2108,11 +2112,11 @@ MonoBehaviour:
   levelThresholds: 000000001e000000460000007d000000c30000001d010000900100001c020000c602000098030000
   maxLevel: 10
   codePrefix: PIG-
-  player: {fileID: 0}
-  worldGenerator: {fileID: 0}
-  rhythmManager: {fileID: 0}
-  dimensionFlipper: {fileID: 0}
-  brawlManager: {fileID: 0}
+  player: {fileID: 1995984866}
+  worldGenerator: {fileID: 1185926271}
+  rhythmManager: {fileID: 1185926270}
+  dimensionFlipper: {fileID: 1185926269}
+  brawlManager: {fileID: 1185926268}
 --- !u!4 &1185926267
 Transform:
   m_ObjectHideFlags: 0
@@ -2128,6 +2132,187 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1185926268
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1185926265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6cbda8ea6f47a84d9beb2a4440adb7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhenPigsCanFly.PigBrawlManager
+  matchDuration: 90
+  kidsMatchDuration: 9999
+  respawnTime: 3
+  playerMaxHp: 100
+  invulnerabilityTime: 2.4
+  pointsLaser: 10
+  pointsPoop: 25
+  pointsKO: 50
+  botCount: 3
+  botPrefab: {fileID: 0}
+  spawnPoints: []
+--- !u!114 &1185926269
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1185926265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 910b524f28637cf48948f840a51a8ba6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhenPigsCanFly.DimensionFlipper
+  morphDuration: 0.6
+  switchCooldownBase: 0.4
+  gameCamera: {fileID: 0}
+  baseFov: 62
+  morphFovBoost: 24
+  fovSmooth: 4
+  speedFovBonus: 0.55
+  maxFov: 76
+  flatCanvasGroup: {fileID: 0}
+  flatCanvasRect: {fileID: 0}
+--- !u!114 &1185926270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1185926265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 20d52613cd8ca9a4880d90ddddc9c768, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhenPigsCanFly.RhythmManager
+  baseBpm: 90
+  bpmPerLevel: 8
+  normalBeatWindow: 0.09
+  kidsBeatWindow: 0.22
+  multiplier2x: 3
+  multiplier3x: 5
+  multiplier4x: 8
+--- !u!114 &1185926271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1185926265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 054355e60c3a8104fa8d5889e5459231, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhenPigsCanFly.WorldGenerator
+  chunkSize: 60
+  viewChunks: 3
+  corridorWidth: 3.2
+  barnPrefab: {fileID: 0}
+  siloPrefab: {fileID: 0}
+  treePrefab: {fileID: 0}
+  balloonPrefab: {fileID: 0}
+  ringPrefab: {fileID: 0}
+  coinPrefab: {fileID: 0}
+  crowPrefab: {fileID: 0}
+  fencePrefab: {fileID: 0}
+  baseDensity: 4
+  maxDensity: 15
+  crowChanceByLevel:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0.025999999
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 0.26
+      inSlope: 0.025999999
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fenceChanceByLevel:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0.022
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 0.22
+      inSlope: 0.022
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  ringChanceByLevel:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0.05
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 10
+      value: 0.05
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  balloonBobAmp: 1
+  ceilingHeight: 30
+--- !u!1 &1246696750
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 1737074678748999614, guid: ff67eaae489c252439920d27170d1ca7, type: 3}
+  m_PrefabInstance: {fileID: 1761557277}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1761557278}
+  - component: {fileID: 1761557280}
+  - component: {fileID: 1761557279}
+  m_Layer: 0
+  m_Name: PigModel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
 --- !u!1001 &1332088988
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2643,11 +2828,78 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ff67eaae489c252439920d27170d1ca7, type: 3}
---- !u!4 &1761557278 stripped
+--- !u!4 &1761557278
 Transform:
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 7756204722614199545, guid: ff67eaae489c252439920d27170d1ca7, type: 3}
   m_PrefabInstance: {fileID: 1761557277}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1246696750}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1735606318}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!23 &1761557279
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 1513522592783607090, guid: ff67eaae489c252439920d27170d1ca7, type: 3}
+  m_PrefabInstance: {fileID: 1761557277}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1246696750}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: -876546973899608171, guid: 4f53dfcf20632794fbd1451aca666aea, type: 3}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!33 &1761557280
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 2510807605518885068, guid: ff67eaae489c252439920d27170d1ca7, type: 3}
+  m_PrefabInstance: {fileID: 1761557277}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1246696750}
+  m_Mesh: {fileID: -5495902117074765545, guid: 4f53dfcf20632794fbd1451aca666aea, type: 3}
 --- !u!1001 &1763060358
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -3311,6 +3563,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 8032c5a3b5bbf5b40b61763b369133ac, type: 3}
+--- !u!114 &1995984866 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 5758181256585222079, guid: 64d07aefc34fd47488943be92ea14126, type: 3}
+  m_PrefabInstance: {fileID: 945706023}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e17aea53095b9534b95d21bbbaa190f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WhenPigsCanFly.PigController
 --- !u!1001 &2142702576
 PrefabInstance:
   m_ObjectHideFlags: 0

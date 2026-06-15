@@ -9,11 +9,13 @@ namespace WhenPigsCanFly
     [RequireComponent(typeof(CharacterController))]
     public class PigController : MonoBehaviour
     {
+        [Header("Gameplay")]
+        [SerializeField] private float ceilingHeight = 30f;
+        [SerializeField] private float floorHeight = 0.7f;
+
         [Header("Movement Constants")]
         [SerializeField] private float gravity = -30f;
         [SerializeField] private float flapVelocity = 11f;
-        [SerializeField] private float ceilingHeight = 30f;
-        [SerializeField] private float floorHeight = 0.7f;
         [SerializeField] private float speedMin = 7f;
         [SerializeField] private float speedMax = 26f;
         [SerializeField] private float turnRate = 1.7f;
@@ -42,6 +44,8 @@ namespace WhenPigsCanFly
         [SerializeField] private Transform wingR;
         [SerializeField] private float wingFlapAngle = 35f;
         [SerializeField] private float wingFlapSpeed = 18f;
+
+        public float CeilingHeight => ceilingHeight;
 
         public Vector3 Velocity { get; private set; }
         public float VerticalSpeed { get; private set; }
@@ -92,6 +96,10 @@ namespace WhenPigsCanFly
             lastFlapTime = now;
             VerticalSpeed = flapVelocity;
             flapAnim = 1f;
+
+            if (RhythmManager.Instance != null)
+                RhythmManager.Instance.RegisterFlap();
+
             return true;
         }
 
@@ -129,6 +137,14 @@ namespace WhenPigsCanFly
 
             float speed = is3D ? Mathf.Max(Speed3D, 12f * 0.8f) : Mathf.Min(18f, 10f);
             Vector3 move = forward * speed;
+
+            // 2D constraint: lock X position and yaw
+            if (!is3D)
+            {
+                move.x = 0f;
+                Yaw = 0f;
+                turnSmoothed = 0f;
+            }
 
             VerticalSpeed += gravity * dt;
             IsGliding = glideHeld;
@@ -179,9 +195,37 @@ namespace WhenPigsCanFly
             bool flap = Input.GetKeyDown(flapKey) || Input.GetButtonDown("Jump");
             bool glide = Input.GetKey(glideKey);
 
-            if (flap) Flap();
+            if (flap)
+            {
+                Flap();
+                AudioManager.Instance?.PlayFlap();
+            }
 
             Tick(Time.deltaTime, Is3D, input, glide);
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (!IsPlayer) return;
+
+            if (other.CompareTag("Ring"))
+            {
+                FindFirstObjectByType<GameManager>()?.CollectRing();
+                AudioManager.Instance?.PlayRing();
+                other.gameObject.SetActive(false);
+            }
+            else if (other.CompareTag("Coin"))
+            {
+                FindFirstObjectByType<GameManager>()?.CollectCoin();
+                AudioManager.Instance?.PlayRing();
+                other.gameObject.SetActive(false);
+            }
+            else if (other.CompareTag("Obstacle"))
+            {
+                StunTimer = 0.5f;
+                VerticalSpeed = -5f;
+                AudioManager.Instance?.PlayHurt();
+            }
         }
     }
 }

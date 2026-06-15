@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace WhenPigsCanFly
@@ -40,6 +42,18 @@ namespace WhenPigsCanFly
         private void Awake()
         {
             RunSeed = Random.Range(0, 0xFFFFFF);
+
+            if (player == null) player = FindFirstObjectByType<PigController>();
+            if (worldGenerator == null) worldGenerator = FindFirstObjectByType<WorldGenerator>();
+            if (rhythmManager == null) rhythmManager = FindFirstObjectByType<RhythmManager>();
+            if (dimensionFlipper == null) dimensionFlipper = FindFirstObjectByType<DimensionFlipper>();
+            if (brawlManager == null) brawlManager = FindFirstObjectByType<PigBrawlManager>();
+
+            var save = FindFirstObjectByType<SaveManager>();
+            if (save != null)
+            {
+                BestScore = save.LoadLeaderboard().FirstOrDefault()?.score ?? 0;
+            }
         }
 
         /// <summary>
@@ -54,12 +68,11 @@ namespace WhenPigsCanFly
             Level = 1;
             TotalDistance = 0f;
             DistanceAccumulator = 0f;
-            player.ResetPig(new Vector3(0f, 9f, 0f));
-            rhythmManager.ResetRhythm();
-            dimensionFlipper.Force3D();
-            dimensionFlipper.Is3D = false;
-            worldGenerator.ClearWorld();
-            worldGenerator.RunSeed = RunSeed;
+            player?.ResetPig(new Vector3(0f, 9f, 0f));
+            rhythmManager?.ResetRhythm();
+            dimensionFlipper?.Force3D();
+            worldGenerator?.ClearWorld();
+            if (worldGenerator != null) worldGenerator.RunSeed = RunSeed;
             OnGameStarted?.Invoke();
         }
 
@@ -72,7 +85,9 @@ namespace WhenPigsCanFly
             Dead = true;
             Playing = false;
             BestScore = Mathf.Max(BestScore, Score);
-            BestChain = Mathf.Max(BestChain, rhythmManager.BestChain);
+            BestChain = Mathf.Max(BestChain, rhythmManager?.BestChain ?? 0);
+            var save = FindFirstObjectByType<SaveManager>();
+            save?.SaveScore(Score, SeedToCode(RunSeed), Level, BestChain);
             RunSeed = Random.Range(0, 0xFFFFFF);
             OnGameEnded?.Invoke();
         }
