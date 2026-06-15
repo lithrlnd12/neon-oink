@@ -28,6 +28,14 @@ namespace WhenPigsCanFly
 
         [Header("Input")]
         [SerializeField] private float joystickDeadzone = 0.12f;
+        [SerializeField] private KeyCode flapKey = KeyCode.Space;
+        [SerializeField] private KeyCode glideKey = KeyCode.LeftShift;
+
+        [Header("Identity")]
+        [SerializeField] private bool isPlayer;
+
+        public bool IsPlayer { get => isPlayer; set => isPlayer = value; }
+        public bool Is3D { get; set; } = true;
 
         public Vector3 Velocity { get; private set; }
         public float VerticalSpeed { get; private set; }
@@ -132,7 +140,26 @@ namespace WhenPigsCanFly
             transform.rotation = Quaternion.Euler(-Bank * Mathf.Rad2Deg, Yaw * Mathf.Rad2Deg, -pitch * Mathf.Rad2Deg);
         }
 
-        private void Start() { }
-        private void Update() { }
+        private void Start() 
+        {
+            VerticalSpeed = 4f;
+            Speed3D = 12f;
+        }
+
+        private void Update() 
+        {
+            if (!IsPlayer) return;
+
+            Vector2 input = Vector2.zero;
+            input.x = Input.GetAxis("Horizontal");
+            input.y = Input.GetAxis("Vertical");
+
+            bool flap = Input.GetKeyDown(flapKey) || Input.GetButtonDown("Jump");
+            bool glide = Input.GetKey(glideKey);
+
+            if (flap) Flap();
+
+            Tick(Time.deltaTime, Is3D, input, glide);
+        }
     }
 }
