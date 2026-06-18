@@ -1,0 +1,5 @@
+// Local ES-module build of gaussian-splats-3d (v0.4.5).
+// Downloaded from:
+// https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.module.js
+// index.html maps "gaussian-splats-3d" to ./assets/splat/gaussian-splats-3d.module.js via importmap.
+// scenery.splat is a procedurally-generated farm/mountain backdrop (286k splats, ~9 MB).
